@@ -13,6 +13,7 @@ export const createProductSchema = z.object({
     .url("URL de imagem invalida")
     .optional()
     .or(z.literal("")),
+  category: z.string().max(50).optional(),
   sizes: z.array(sizeSchema).min(1, "Informe ao menos um tamanho com preco"),
 });
 
@@ -24,5 +25,6 @@ export const updateProductSchema = z.object({
     .url("URL de imagem invalida")
     .optional()
     .or(z.literal("")),
+  category: z.string().max(50).optional(),
   sizes: z.array(sizeSchema).min(1).optional(),
 });

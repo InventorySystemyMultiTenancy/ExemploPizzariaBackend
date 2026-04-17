@@ -16,12 +16,13 @@ export class ProductRepository {
     });
   }
 
-  async create({ name, description, imageUrl, sizes }) {
+  async create({ name, description, imageUrl, category, sizes }) {
     return prisma.product.create({
       data: {
         name,
         description: description ?? null,
         imageUrl: imageUrl ?? null,
+        category: category ?? "Geral",
         sizes: {
           create: sizes.map(({ size, price }) => ({ size, price })),
         },
@@ -30,7 +31,7 @@ export class ProductRepository {
     });
   }
 
-  async update(productId, { name, description, imageUrl, sizes }) {
+  async update(productId, { name, description, imageUrl, category, sizes }) {
     return prisma.$transaction(async (tx) => {
       const product = await tx.product.update({
         where: { id: productId },
@@ -38,6 +39,7 @@ export class ProductRepository {
           ...(name !== undefined && { name }),
           ...(description !== undefined && { description }),
           ...(imageUrl !== undefined && { imageUrl }),
+          ...(category !== undefined && { category }),
         },
       });
 
