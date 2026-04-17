@@ -1,6 +1,8 @@
 import { AppError } from "../errors/AppError.js";
 import { ProductRepository } from "../repositories/ProductRepository.js";
 
+// Schema version: product.category field added (v2)
+
 export class ProductService {
   constructor(productRepository = new ProductRepository()) {
     this.productRepository = productRepository;
