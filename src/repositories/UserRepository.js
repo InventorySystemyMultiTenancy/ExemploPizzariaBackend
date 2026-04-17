@@ -7,6 +7,26 @@ export class UserRepository {
     });
   }
 
+  async findByPhone(phone) {
+    return prisma.user.findUnique({
+      where: { phone },
+    });
+  }
+
+  async findByCpf(cpf) {
+    return prisma.user.findUnique({
+      where: { cpf },
+    });
+  }
+
+  async findByEmailOrPhone(identifier) {
+    return prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { phone: identifier }],
+      },
+    });
+  }
+
   async findById(id) {
     return prisma.user.findUnique({
       where: { id },
@@ -20,6 +40,9 @@ export class UserRepository {
         id: true,
         name: true,
         email: true,
+        phone: true,
+        cpf: true,
+        address: true,
         role: true,
         createdAt: true,
       },

@@ -44,7 +44,10 @@ enum OrderItemType {
 model User {
   id           String   @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String?  @unique
+  phone        String?  @unique
+  cpf          String?  @unique
+  address      String?
   passwordHash String
   role         Role     @default(CLIENTE)
   createdAt    DateTime @default(now())
