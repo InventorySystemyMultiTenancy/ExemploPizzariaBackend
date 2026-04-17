@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { AuthController } from "./controllers/AuthController.js";
 import { OrderController } from "./controllers/OrderController.js";
+import { PaymentController } from "./controllers/PaymentController.js";
 import { ProductController } from "./controllers/ProductController.js";
 import {
   authenticateToken,
@@ -13,6 +14,7 @@ import { errorMiddleware } from "./middlewares/errorMiddleware.js";
 const app = express();
 const authController = new AuthController();
 const orderController = new OrderController();
+const paymentController = new PaymentController();
 const productController = new ProductController();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }));
@@ -122,6 +124,10 @@ app.patch(
 
 app.post("/api/payments/webhook", (req, res, next) =>
   orderController.paymentWebhook(req, res, next),
+);
+
+app.post("/api/payments/preference", authenticateToken, (req, res, next) =>
+  paymentController.createPreference(req, res, next),
 );
 
 app.use(errorMiddleware);
