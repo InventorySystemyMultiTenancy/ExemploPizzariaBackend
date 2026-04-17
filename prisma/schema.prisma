@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  FUNCIONARIO
+  COZINHA
+  CLIENTE
+}
+
+enum ProductSizeEnum {
+  PEQUENA
+  MEDIA
+  GRANDE
+  FAMILIA
+}
+
+enum OrderStatus {
+  RECEBIDO
+  PREPARANDO
+  NO_FORNO
+  SAIU_PARA_ENTREGA
+  ENTREGUE
+}
+
+enum PaymentStatus {
+  PENDENTE
+  APROVADO
+  RECUSADO
+  ESTORNADO
+}
+
+enum OrderItemType {
+  INTEIRA
+  MEIO_A_MEIO
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CLIENTE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orders       Order[]
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  imageUrl    String?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  sizes       ProductSize[]
+
+  orderItemsWhole      OrderItem[] @relation("OrderItemWholeProduct")
+  orderItemsFirstHalf  OrderItem[] @relation("OrderItemFirstHalfProduct")
+  orderItemsSecondHalf OrderItem[] @relation("OrderItemSecondHalfProduct")
+}
+
+model ProductSize {
+  id        String          @id @default(cuid())
+  productId String
+  size      ProductSizeEnum
+  price     Decimal         @db.Decimal(10, 2)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, size])
+}
+
+model Order {
+  id             String       @id @default(cuid())
+  userId         String
+  status         OrderStatus  @default(RECEBIDO)
+  total          Decimal      @db.Decimal(10, 2)
+  paymentStatus  PaymentStatus @default(PENDENTE)
+  deliveryAddress String
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deliveredAt    DateTime?
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items          OrderItem[]
+  payment        Payment?
+}
+
+model OrderItem {
+  id                  String          @id @default(cuid())
+  orderId             String
+  quantity            Int             @default(1)
+  type                OrderItemType
+  size                ProductSizeEnum
+  unitPrice           Decimal         @db.Decimal(10, 2)
+  totalPrice          Decimal         @db.Decimal(10, 2)
+
+  productId           String?
+  firstHalfProductId  String?
+  secondHalfProductId String?
+
+  order               Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product             Product?        @relation("OrderItemWholeProduct", fields: [productId], references: [id], onDelete: Restrict)
+  firstHalfProduct    Product?        @relation("OrderItemFirstHalfProduct", fields: [firstHalfProductId], references: [id], onDelete: Restrict)
+  secondHalfProduct   Product?        @relation("OrderItemSecondHalfProduct", fields: [secondHalfProductId], references: [id], onDelete: Restrict)
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  orderId     String        @unique
+  provider    String
+  externalId  String?       @unique
+  amount      Decimal       @db.Decimal(10, 2)
+  status      PaymentStatus @default(PENDENTE)
+  payload     Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}

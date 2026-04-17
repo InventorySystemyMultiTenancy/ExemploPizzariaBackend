@@ -1,0 +1,28 @@
+import { z } from "zod";
+
+const sizeSchema = z.object({
+  size: z.enum(["PEQUENA", "MEDIA", "GRANDE", "FAMILIA"]),
+  price: z.number().positive("Preco deve ser positivo"),
+});
+
+export const createProductSchema = z.object({
+  name: z.string().min(2, "Nome muito curto").max(100),
+  description: z.string().max(300).optional(),
+  imageUrl: z
+    .string()
+    .url("URL de imagem invalida")
+    .optional()
+    .or(z.literal("")),
+  sizes: z.array(sizeSchema).min(1, "Informe ao menos um tamanho com preco"),
+});
+
+export const updateProductSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  description: z.string().max(300).optional(),
+  imageUrl: z
+    .string()
+    .url("URL de imagem invalida")
+    .optional()
+    .or(z.literal("")),
+  sizes: z.array(sizeSchema).min(1).optional(),
+});
