@@ -126,6 +126,11 @@ app.post("/api/payments/webhook", (req, res, next) =>
   orderController.paymentWebhook(req, res, next),
 );
 
+// MP IPN validation — sends GET to confirm the endpoint is alive
+app.get("/api/payments/webhook", (_req, res) => {
+  return res.status(200).json({ status: "ok" });
+});
+
 app.post("/api/payments/preference", authenticateToken, (req, res, next) =>
   paymentController.createPreference(req, res, next),
 );
