@@ -92,6 +92,25 @@ export class OrderController {
     }
   }
 
+  async adminUpdatePaymentStatus(req, res, next) {
+    try {
+      const { paymentStatus } = req.body;
+      const ALLOWED = ["APROVADO", "PENDENTE", "RECUSADO"];
+      if (!ALLOWED.includes(paymentStatus)) {
+        throw new AppError("paymentStatus inválido.", 422);
+      }
+      const order = await orderService.adminSetPaymentStatus(
+        req.params.orderId,
+        paymentStatus,
+      );
+      return res
+        .status(200)
+        .json({ message: "Status de pagamento atualizado.", data: order });
+    } catch (error) {
+      return this.#handleError(error, next);
+    }
+  }
+
   async paymentWebhook(req, res, next) {
     try {
       const payload = paymentWebhookSchema.parse(req.body);

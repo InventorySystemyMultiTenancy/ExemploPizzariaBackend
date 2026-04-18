@@ -122,6 +122,13 @@ app.patch(
   (req, res, next) => orderController.updateStatus(req, res, next),
 );
 
+app.patch(
+  "/api/orders/:orderId/payment-status",
+  authenticateToken,
+  authorizeRoles("ADMIN", "FUNCIONARIO"),
+  (req, res, next) => orderController.adminUpdatePaymentStatus(req, res, next),
+);
+
 app.post("/api/payments/webhook", (req, res, next) =>
   orderController.paymentWebhook(req, res, next),
 );

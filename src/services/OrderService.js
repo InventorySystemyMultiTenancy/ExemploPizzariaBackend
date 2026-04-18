@@ -212,6 +212,12 @@ export class OrderService {
     };
   }
 
+  async adminSetPaymentStatus(orderId, paymentStatus) {
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) throw new AppError("Pedido não encontrado.", 404);
+    return this.orderRepository.updatePaymentStatus(orderId, paymentStatus);
+  }
+
   async listOrdersByUser(userId) {
     return this.orderRepository.findByUserId(userId);
   }
