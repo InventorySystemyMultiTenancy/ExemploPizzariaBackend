@@ -1,3 +1,4 @@
+import { MercadoPagoConfig, Payment as MPPayment } from "mercadopago";
 import { Prisma } from "@prisma/client";
 import { AppError } from "../errors/AppError.js";
 import { OrderRepository } from "../repositories/OrderRepository.js";
@@ -145,16 +146,36 @@ export class OrderService {
   }
 
   async handlePaymentWebhook(payload) {
-    const externalId = String(payload?.data?.id ?? payload?.id ?? "");
-    const providerStatus = String(
-      payload?.data?.status ?? payload?.status ?? "pending",
-    ).toLowerCase();
-    const paymentStatus = PAYMENT_STATUS_MAP[providerStatus] ?? "PENDENTE";
-
-    const orderId =
+    // MP sends { type: "payment", data: { id: "<payment_id>" } } — no status inline.
+    // We must call the MP API to get the real payment status + external_reference.
+    const rawPaymentId = payload?.data?.id ?? payload?.id;
+    let providerStatus = "pending";
+    let orderId =
+      payload?.external_reference ??
       payload?.data?.metadata?.order_id ??
-      payload?.metadata?.order_id ??
-      payload?.external_reference;
+      payload?.metadata?.order_id;
+    let externalId = String(rawPaymentId ?? "");
+
+    if (rawPaymentId && process.env.MP_ACCESS_TOKEN) {
+      try {
+        const client = new MercadoPagoConfig({
+          accessToken: process.env.MP_ACCESS_TOKEN,
+        });
+        const paymentApi = new MPPayment(client);
+        const paymentData = await paymentApi.get({ id: String(rawPaymentId) });
+        providerStatus = (paymentData.status ?? "pending").toLowerCase();
+        orderId = orderId || paymentData.external_reference;
+        externalId = String(paymentData.id ?? rawPaymentId);
+      } catch {
+        // fall through with defaults
+      }
+    } else {
+      providerStatus = String(
+        payload?.data?.status ?? payload?.status ?? "pending",
+      ).toLowerCase();
+    }
+
+    const paymentStatus = PAYMENT_STATUS_MAP[providerStatus] ?? "PENDENTE";
 
     if (!orderId) {
       throw new AppError(
