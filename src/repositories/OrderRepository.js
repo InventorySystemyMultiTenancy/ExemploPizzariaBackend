@@ -80,8 +80,8 @@ export class OrderRepository {
         items: {
           include: {
             product: { select: { id: true, name: true } },
-            firstHalf: { select: { id: true, name: true } },
-            secondHalf: { select: { id: true, name: true } },
+            firstHalfProduct: { select: { id: true, name: true } },
+            secondHalfProduct: { select: { id: true, name: true } },
           },
         },
         user: { select: { id: true, name: true } },
@@ -96,8 +96,8 @@ export class OrderRepository {
         items: {
           include: {
             product: { select: { id: true, name: true } },
-            firstHalf: { select: { id: true, name: true } },
-            secondHalf: { select: { id: true, name: true } },
+            firstHalfProduct: { select: { id: true, name: true } },
+            secondHalfProduct: { select: { id: true, name: true } },
           },
         },
       },
