@@ -87,6 +87,13 @@ app.get(
 );
 
 app.get(
+  "/api/admin/orders/history",
+  authenticateToken,
+  authorizeRoles("ADMIN", "FUNCIONARIO"),
+  (req, res, next) => orderController.history(req, res, next),
+);
+
+app.get(
   "/api/admin/analytics",
   authenticateToken,
   authorizeRoles("ADMIN", "FUNCIONARIO"),

@@ -80,6 +80,20 @@ export class OrderController {
     }
   }
 
+  async history(req, res, next) {
+    try {
+      const { clientName, dateFrom, dateTo } = req.query;
+      const orders = await orderService.listOrderHistory({
+        clientName: clientName || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+      });
+      return res.status(200).json({ data: orders });
+    } catch (error) {
+      return this.#handleError(error, next);
+    }
+  }
+
   async cancel(req, res, next) {
     try {
       const updatedOrder = await orderService.cancelOrder(req.params.orderId);

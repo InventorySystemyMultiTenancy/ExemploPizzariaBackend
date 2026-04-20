@@ -258,6 +258,14 @@ export class OrderService {
     return orders.filter((o) => o.status !== "CANCELADO");
   }
 
+  async listOrderHistory({ clientName, dateFrom, dateTo } = {}) {
+    return this.orderRepository.findAllHistory({
+      clientName,
+      dateFrom,
+      dateTo,
+    });
+  }
+
   async getSalesAnalytics() {
     const orders = await this.orderRepository.findAllForAnalytics();
     const now = new Date();
