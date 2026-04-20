@@ -119,7 +119,7 @@ export class OrderRepository {
             secondHalfProduct: { select: { id: true, name: true } },
           },
         },
-        user: { select: { id: true, name: true, phone: true } },
+        user: { select: { id: true, name: true } },
         payment: true,
       },
       orderBy: { createdAt: "desc" },
