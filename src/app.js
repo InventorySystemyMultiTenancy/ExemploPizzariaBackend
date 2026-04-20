@@ -119,13 +119,13 @@ app.post(
   authenticateToken,
   async (req, res, next) => {
     try {
-      const { cep, numero, cidade, complemento } = deliveryFreightSchema.parse(
-        req.body,
-      );
+      const { cep, numero, cidade, rua, complemento } =
+        deliveryFreightSchema.parse(req.body);
       const result = await deliveryService.calculateFreight({
         cep,
         numero,
         cidade,
+        rua,
         complemento,
       });
       return res.status(200).json({ data: result });

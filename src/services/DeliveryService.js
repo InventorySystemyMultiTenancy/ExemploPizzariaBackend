@@ -43,10 +43,14 @@ export class DeliveryService {
    * @param {string} cidade - Cidade do cliente
    * @returns {{ distanciaKm: number, valorFrete: string, tempoEstimado: number }}
    */
-  async calculateFreight({ cep, numero, cidade }) {
+  async calculateFreight({ cep, numero, cidade, rua }) {
     // ── Etapa 1: Geocodificação via Nominatim ────────────────────────────────
     const cleanCep = cep.replace(/\D/g, "");
-    const query = `${cleanCep}, ${numero}, ${cidade}, Brasil`;
+    // Usa o nome da rua quando disponível para maior precisão
+    const query =
+      rua && rua.trim()
+        ? `${rua.trim()}, ${numero}, ${cidade}, Brasil`
+        : `${cleanCep}, ${numero}, ${cidade}, Brasil`;
 
     let lat, lon, displayName;
 
@@ -132,4 +136,3 @@ export class DeliveryService {
     };
   }
 }
-

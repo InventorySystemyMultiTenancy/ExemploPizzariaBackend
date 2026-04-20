@@ -30,6 +30,7 @@ export const deliveryFreightSchema = z.object({
   cep: z.string().regex(/^\d{5}-?\d{3}$/, "CEP inválido"),
   numero: z.string().min(1).max(20),
   cidade: z.string().min(2).max(100),
+  rua: z.string().max(200).optional(),
   complemento: z.string().max(100).optional(),
 });
 
