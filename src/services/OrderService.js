@@ -53,6 +53,7 @@ export class OrderService {
     deliveryFee,
     deliveryLat,
     deliveryLon,
+    isPickup,
   }) {
     if (!items?.length) {
       throw new AppError("Pedido deve conter ao menos 1 item.", 422);
@@ -87,6 +88,7 @@ export class OrderService {
       notes,
       total: new Prisma.Decimal(fromCents(totalCents)),
       paymentStatus: "PENDENTE",
+      ...(isPickup != null ? { isPickup } : {}),
       ...(paymentMethod != null ? { paymentMethod } : {}),
       ...(deliveryFee != null
         ? { deliveryFee: new Prisma.Decimal(deliveryFee) }
@@ -485,6 +487,10 @@ export class OrderService {
     }
 
     return order;
+  }
+
+  async assignMotoboy(orderId, motoboyId) {
+    await this.orderRepository.assignMotoboy(orderId, motoboyId);
   }
 
   async deleteOrder(orderId, userId) {

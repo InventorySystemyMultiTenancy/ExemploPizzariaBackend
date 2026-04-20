@@ -196,6 +196,29 @@ app.patch(
   (req, res, next) => orderController.cancel(req, res, next),
 );
 
+app.patch(
+  "/api/orders/:orderId/assign-motoboy",
+  authenticateToken,
+  authorizeRoles("ADMIN", "FUNCIONARIO", "COZINHA"),
+  (req, res, next) => orderController.assignMotoboy(req, res, next),
+);
+
+app.get(
+  "/api/admin/motoboys",
+  authenticateToken,
+  authorizeRoles("ADMIN", "FUNCIONARIO", "COZINHA"),
+  async (_req, res, next) => {
+    try {
+      const motoboys = await prisma.$queryRaw`
+        SELECT id, name FROM "User" WHERE role::text = 'MOTOBOY' ORDER BY name ASC
+      `;
+      return res.status(200).json({ data: motoboys });
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
+
 app.delete(
   "/api/orders/:orderId",
   authenticateToken,

@@ -17,7 +17,8 @@ const itemSchema = z.discriminatedUnion("type", [
 ]);
 
 export const createOrderSchema = z.object({
-  deliveryAddress: z.string().min(8).max(255),
+  deliveryAddress: z.string().min(1).max(255),
+  isPickup: z.boolean().optional(),
   notes: z.string().max(1000).optional(),
   paymentMethod: z.string().min(2).max(50).optional(),
   deliveryFee: z.number().nonnegative().optional(),

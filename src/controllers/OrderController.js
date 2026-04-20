@@ -162,6 +162,19 @@ export class OrderController {
     }
   }
 
+  async assignMotoboy(req, res, next) {
+    try {
+      const { motoboyId } = req.body;
+      if (!motoboyId || typeof motoboyId !== "string") {
+        throw new AppError("motoboyId é obrigatório.", 422);
+      }
+      await orderService.assignMotoboy(req.params.orderId, motoboyId);
+      return res.status(200).json({ message: "Motoboy atribuído." });
+    } catch (error) {
+      return this.#handleError(error, next);
+    }
+  }
+
   async deleteOrder(req, res, next) {
     try {
       await orderService.deleteOrder(req.params.orderId, req.user.id);

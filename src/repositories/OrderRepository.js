@@ -64,6 +64,7 @@ export class OrderRepository {
              o."paymentStatus"::text AS "paymentStatus",
              o."deliveryAddress", o.notes, o."paymentMethod",
              o.total, o."deliveryFee", o."deliveryLat", o."deliveryLon",
+             o."isPickup", o."assignedMotoboyId",
              o."createdAt", o."updatedAt", o."deliveredAt"
       FROM "Order" o WHERE o.id = ${orderId}
     `;
@@ -137,6 +138,7 @@ export class OrderRepository {
           o."paymentStatus"::text AS "paymentStatus",
           o."deliveryAddress", o.notes, o."paymentMethod",
           o.total, o."deliveryFee", o."deliveryLat", o."deliveryLon",
+          o."isPickup", o."assignedMotoboyId",
           o."createdAt", o."updatedAt", o."deliveredAt"
         FROM "Order" o
         WHERE o."userId" = ${userId}
@@ -176,6 +178,12 @@ export class OrderRepository {
     }));
   }
 
+  async assignMotoboy(orderId, motoboyId) {
+    await prisma.$executeRaw`
+      UPDATE "Order" SET "assignedMotoboyId" = ${motoboyId} WHERE id = ${orderId}
+    `;
+  }
+
   async deleteById(orderId, userId) {
     // Must delete related rows first (Payment, OrderItem) then the Order itself
     await prisma.$transaction([
@@ -202,6 +210,7 @@ export class OrderRepository {
           o."paymentStatus"::text AS "paymentStatus",
           o."deliveryAddress", o.notes, o."paymentMethod",
           o.total, o."deliveryFee", o."deliveryLat", o."deliveryLon",
+          o."isPickup", o."assignedMotoboyId",
           o."createdAt", o."updatedAt", o."deliveredAt"
         FROM "Order" o
         WHERE o.status::text NOT IN ('ENTREGUE','CANCELADO')
