@@ -302,7 +302,8 @@ export class OrderRepository {
       `SELECT o.id, o."userId", o.status::text AS status,
               o."paymentStatus"::text AS "paymentStatus",
               o."deliveryAddress", o.notes, o."paymentMethod",
-              o."deliveryFee", o."deliveryLat", o."deliveryLon",
+              o.total, o."deliveryFee", o."deliveryLat", o."deliveryLon",
+              o."isPickup", o."assignedMotoboyId",
               o."createdAt", o."updatedAt", o."deliveredAt",
               u.name AS "userName"
        FROM "Order" o
