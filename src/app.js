@@ -10,6 +10,7 @@ import {
   enforceOrderOwnership,
 } from "./middlewares/authMiddleware.js";
 import { errorMiddleware } from "./middlewares/errorMiddleware.js";
+import { prisma } from "./lib/prisma.js";
 
 const app = express();
 const authController = new AuthController();
@@ -91,6 +92,24 @@ app.get(
   authenticateToken,
   authorizeRoles("ADMIN", "FUNCIONARIO"),
   (req, res, next) => orderController.history(req, res, next),
+);
+
+app.get(
+  "/api/admin/clients",
+  authenticateToken,
+  authorizeRoles("ADMIN", "FUNCIONARIO"),
+  async (_req, res, next) => {
+    try {
+      const users = await prisma.user.findMany({
+        where: { role: "CLIENTE" },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      });
+      return res.status(200).json({ data: users });
+    } catch (err) {
+      return next(err);
+    }
+  },
 );
 
 app.get(
