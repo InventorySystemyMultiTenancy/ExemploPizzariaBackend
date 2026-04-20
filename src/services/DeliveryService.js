@@ -2,9 +2,9 @@ import axios from "axios";
 import { AppError } from "../errors/AppError.js";
 
 // ─── Constantes da Pizzaria ───────────────────────────────────────────────────
-// Endereço fixo: Rua Itinguçu, Vila Guilhermina, São Paulo
-const PIZZARIA_LAT = -23.5348;
-const PIZZARIA_LON = -46.5011;
+// Endereço fixo: Avenida Cachoeira Paulista, 17 — CEP 03551-000, São Paulo
+const PIZZARIA_LAT = -23.5318;
+const PIZZARIA_LON = -46.5043;
 
 const TAXA_POR_KM = 8.0; // R$ 8,00 por km rodado
 
