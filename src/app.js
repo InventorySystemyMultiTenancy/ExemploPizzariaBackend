@@ -20,7 +20,22 @@ const orderController = new OrderController();
 const paymentController = new PaymentController();
 const productController = new ProductController();
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }));
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim());
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, Render health checks)
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
