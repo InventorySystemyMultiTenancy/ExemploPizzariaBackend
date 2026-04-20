@@ -1,6 +1,45 @@
 import { prisma } from "../lib/prisma.js";
 
 export class OrderRepository {
+  // Helpers: Prisma v6 não suporta arrays em $queryRaw template tags;
+  // usamos $queryRawUnsafe com placeholders IN ($1, $2, ...) em vez de ANY($1::text[])
+  async #fetchItemsForOrders(orderIds) {
+    if (!orderIds.length) return [];
+    const ph = orderIds.map((_, i) => `$${i + 1}`).join(", ");
+    return prisma.$queryRawUnsafe(
+      `SELECT oi.*, p.name AS "productName",
+              fp.name AS "firstHalfProductName",
+              sp.name AS "secondHalfProductName"
+       FROM "OrderItem" oi
+       LEFT JOIN "Product" p ON p.id = oi."productId"
+       LEFT JOIN "Product" fp ON fp.id = oi."firstHalfProductId"
+       LEFT JOIN "Product" sp ON sp.id = oi."secondHalfProductId"
+       WHERE oi."orderId" IN (${ph})`,
+      ...orderIds,
+    );
+  }
+
+  async #fetchPaymentsForOrders(orderIds) {
+    if (!orderIds.length) return [];
+    const ph = orderIds.map((_, i) => `$${i + 1}`).join(", ");
+    return prisma.$queryRawUnsafe(
+      `SELECT * FROM "Payment" WHERE "orderId" IN (${ph})`,
+      ...orderIds,
+    );
+  }
+
+  async #fetchUsersForOrders(orderIds) {
+    if (!orderIds.length) return [];
+    const ph = orderIds.map((_, i) => `$${i + 1}`).join(", ");
+    return prisma.$queryRawUnsafe(
+      `SELECT u.id, u.name FROM "User" u
+       WHERE u.id IN (
+         SELECT DISTINCT "userId" FROM "Order" WHERE id IN (${ph})
+       )`,
+      ...orderIds,
+    );
+  }
+
   async createOrder(data) {
     return prisma.order.create({
       data,
@@ -107,21 +146,8 @@ export class OrderRepository {
 
     const orderIds = orders.map((o) => o.id);
 
-    const items = await prisma.$queryRaw`
-      SELECT oi.*, p.name AS "productName",
-             fp.name AS "firstHalfProductName",
-             sp.name AS "secondHalfProductName"
-      FROM "OrderItem" oi
-      LEFT JOIN "Product" p ON p.id = oi."productId"
-      LEFT JOIN "Product" fp ON fp.id = oi."firstHalfProductId"
-      LEFT JOIN "Product" sp ON sp.id = oi."secondHalfProductId"
-      WHERE oi."orderId" = ANY(${orderIds}::text[])
-    `;
-
-    const payments = await prisma.$queryRaw`
-      SELECT * FROM "Payment"
-      WHERE "orderId" = ANY(${orderIds}::text[])
-    `;
+    const items = await this.#fetchItemsForOrders(orderIds);
+    const payments = await this.#fetchPaymentsForOrders(orderIds);
 
     return orders.map((o) => ({
       ...o,
@@ -148,23 +174,8 @@ export class OrderRepository {
 
     const orderIds = orders.map((o) => o.id);
 
-    const items = await prisma.$queryRaw`
-      SELECT oi.*, p.name AS "productName",
-             fp.name AS "firstHalfProductName",
-             sp.name AS "secondHalfProductName"
-      FROM "OrderItem" oi
-      LEFT JOIN "Product" p ON p.id = oi."productId"
-      LEFT JOIN "Product" fp ON fp.id = oi."firstHalfProductId"
-      LEFT JOIN "Product" sp ON sp.id = oi."secondHalfProductId"
-      WHERE oi."orderId" = ANY(${orderIds}::text[])
-    `;
-
-    const users = await prisma.$queryRaw`
-      SELECT u.id, u.name FROM "User" u
-      WHERE u.id = ANY(
-        SELECT DISTINCT "userId" FROM "Order" WHERE id = ANY(${orderIds}::text[])
-      )
-    `;
+    const items = await this.#fetchItemsForOrders(orderIds);
+    const users = await this.#fetchUsersForOrders(orderIds);
 
     return orders.map((o) => ({
       ...o,
@@ -240,20 +251,8 @@ export class OrderRepository {
 
     const orderIds = orders.map((o) => o.id);
 
-    const items = await prisma.$queryRaw`
-      SELECT oi.*, p.name AS "productName",
-             fp.name AS "firstHalfProductName",
-             sp.name AS "secondHalfProductName"
-      FROM "OrderItem" oi
-      LEFT JOIN "Product" p ON p.id = oi."productId"
-      LEFT JOIN "Product" fp ON fp.id = oi."firstHalfProductId"
-      LEFT JOIN "Product" sp ON sp.id = oi."secondHalfProductId"
-      WHERE oi."orderId" = ANY(${orderIds}::text[])
-    `;
-
-    const payments = await prisma.$queryRaw`
-      SELECT * FROM "Payment" WHERE "orderId" = ANY(${orderIds}::text[])
-    `;
+    const items = await this.#fetchItemsForOrders(orderIds);
+    const payments = await this.#fetchPaymentsForOrders(orderIds);
 
     return orders.map((o) => ({
       ...o,
@@ -277,16 +276,7 @@ export class OrderRepository {
 
     const orderIds = orders.map((o) => o.id);
 
-    const items = await prisma.$queryRaw`
-      SELECT oi.*, p.name AS "productName",
-             fp.name AS "firstHalfProductName",
-             sp.name AS "secondHalfProductName"
-      FROM "OrderItem" oi
-      LEFT JOIN "Product" p ON p.id = oi."productId"
-      LEFT JOIN "Product" fp ON fp.id = oi."firstHalfProductId"
-      LEFT JOIN "Product" sp ON sp.id = oi."secondHalfProductId"
-      WHERE oi."orderId" = ANY(${orderIds}::text[])
-    `;
+    const items = await this.#fetchItemsForOrders(orderIds);
 
     return orders.map((o) => ({
       ...o,
