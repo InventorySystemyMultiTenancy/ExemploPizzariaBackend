@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma.js";
 export class OrderRepository {
   // Helpers: Prisma v6 não suporta arrays em $queryRaw template tags;
   // usamos $queryRawUnsafe com placeholders IN ($1, $2, ...) em vez de ANY($1::text[])
-  async #fetchItemsForOrders(orderIds) {
+  async _fetchItemsForOrders(orderIds) {
     if (!orderIds.length) return [];
     const ph = orderIds.map((_, i) => `$${i + 1}`).join(", ");
     return prisma.$queryRawUnsafe(
@@ -19,7 +19,7 @@ export class OrderRepository {
     );
   }
 
-  async #fetchPaymentsForOrders(orderIds) {
+  async _fetchPaymentsForOrders(orderIds) {
     if (!orderIds.length) return [];
     const ph = orderIds.map((_, i) => `$${i + 1}`).join(", ");
     return prisma.$queryRawUnsafe(
@@ -28,7 +28,7 @@ export class OrderRepository {
     );
   }
 
-  async #fetchUsersForOrders(orderIds) {
+  async _fetchUsersForOrders(orderIds) {
     if (!orderIds.length) return [];
     const ph = orderIds.map((_, i) => `$${i + 1}`).join(", ");
     return prisma.$queryRawUnsafe(
@@ -146,8 +146,8 @@ export class OrderRepository {
 
     const orderIds = orders.map((o) => o.id);
 
-    const items = await this.#fetchItemsForOrders(orderIds);
-    const payments = await this.#fetchPaymentsForOrders(orderIds);
+    const items = await this._fetchItemsForOrders(orderIds);
+    const payments = await this._fetchPaymentsForOrders(orderIds);
 
     return orders.map((o) => ({
       ...o,
@@ -174,8 +174,8 @@ export class OrderRepository {
 
     const orderIds = orders.map((o) => o.id);
 
-    const items = await this.#fetchItemsForOrders(orderIds);
-    const users = await this.#fetchUsersForOrders(orderIds);
+    const items = await this._fetchItemsForOrders(orderIds);
+    const users = await this._fetchUsersForOrders(orderIds);
 
     return orders.map((o) => ({
       ...o,
@@ -251,8 +251,8 @@ export class OrderRepository {
 
     const orderIds = orders.map((o) => o.id);
 
-    const items = await this.#fetchItemsForOrders(orderIds);
-    const payments = await this.#fetchPaymentsForOrders(orderIds);
+    const items = await this._fetchItemsForOrders(orderIds);
+    const payments = await this._fetchPaymentsForOrders(orderIds);
 
     return orders.map((o) => ({
       ...o,
@@ -276,7 +276,7 @@ export class OrderRepository {
 
     const orderIds = orders.map((o) => o.id);
 
-    const items = await this.#fetchItemsForOrders(orderIds);
+    const items = await this._fetchItemsForOrders(orderIds);
 
     return orders.map((o) => ({
       ...o,

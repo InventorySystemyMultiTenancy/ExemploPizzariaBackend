@@ -10,9 +10,12 @@ export const errorMiddleware = (error, _req, res, _next) => {
     });
   }
 
+  console.error("[500 Internal Error]", error);
+
   return res.status(500).json({
     error: {
       message: "Erro interno do servidor.",
+      detail: process.env.NODE_ENV !== "production" ? error.message : undefined,
     },
   });
 };
