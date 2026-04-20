@@ -176,6 +176,22 @@ export class OrderRepository {
     }));
   }
 
+  async deleteById(orderId, userId) {
+    // Must delete related rows first (Payment, OrderItem) then the Order itself
+    await prisma.$transaction([
+      prisma.$executeRaw`DELETE FROM "Payment" WHERE "orderId" = ${orderId}`,
+      prisma.$executeRaw`DELETE FROM "OrderItem" WHERE "orderId" = ${orderId}`,
+      prisma.$executeRaw`DELETE FROM "Order" WHERE id = ${orderId} AND "userId" = ${userId} AND status::text = 'CANCELADO'`,
+    ]);
+  }
+
+  async findOwnerAndStatus(orderId) {
+    const rows = await prisma.$queryRaw`
+      SELECT "userId", status::text AS status FROM "Order" WHERE id = ${orderId}
+    `;
+    return rows[0] ?? null;
+  }
+
   async findAllActive() {
     console.log("[findAllActive] start");
     let orders;

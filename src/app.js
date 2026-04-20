@@ -196,6 +196,13 @@ app.patch(
   (req, res, next) => orderController.cancel(req, res, next),
 );
 
+app.delete(
+  "/api/orders/:orderId",
+  authenticateToken,
+  authorizeRoles("CLIENTE", "ADMIN"),
+  (req, res, next) => orderController.deleteOrder(req, res, next),
+);
+
 app.patch(
   "/api/orders/:orderId/status",
   authenticateToken,

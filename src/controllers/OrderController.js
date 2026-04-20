@@ -162,6 +162,15 @@ export class OrderController {
     }
   }
 
+  async deleteOrder(req, res, next) {
+    try {
+      await orderService.deleteOrder(req.params.orderId, req.user.id);
+      return res.status(200).json({ message: "Pedido excluido com sucesso." });
+    } catch (error) {
+      return this.#handleError(error, next);
+    }
+  }
+
   #handleError(error, next) {
     if (error instanceof ZodError) {
       return next(new AppError("Payload invalido.", 422, error.flatten()));

@@ -487,6 +487,19 @@ export class OrderService {
     return order;
   }
 
+  async deleteOrder(orderId, userId) {
+    const row = await this.orderRepository.findOwnerAndStatus(orderId);
+    if (!row) throw new AppError("Pedido nao encontrado.", 404);
+    if (row.userId !== userId) throw new AppError("Acesso negado.", 403);
+    if (row.status !== "CANCELADO") {
+      throw new AppError(
+        "Somente pedidos cancelados podem ser excluidos.",
+        422,
+      );
+    }
+    await this.orderRepository.deleteById(orderId, userId);
+  }
+
   async #normalizeWholeItem(item) {
     const quantity = item.quantity ?? 1;
     if (!item.productId || !item.size) {
