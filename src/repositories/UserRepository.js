@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { randomUUID } from "crypto";
+import { Prisma } from "@prisma/client";
 
 // Raw SQL workaround: Prisma Client on Render may be stale (generated before
 // phone/cpf/address columns were added). We use $queryRaw/$executeRaw for
@@ -56,26 +57,35 @@ export class UserRepository {
   }
 
   async create({ name, email, phone, cpf, address, passwordHash, role }) {
-    // Use raw SQL to bypass stale Prisma Client enum validation
-    // (MOTOBOY was added after the client was generated on Render)
-    const resolvedRole = role || "CLIENTE";
-    const id = randomUUID(); // Node.js built-in, no extension needed
+    const VALID_ROLES = [
+      "ADMIN",
+      "FUNCIONARIO",
+      "COZINHA",
+      "MOTOBOY",
+      "CLIENTE",
+    ];
+    const resolvedRole = VALID_ROLES.includes(role) ? role : "CLIENTE";
+    const id = randomUUID();
 
-    await prisma.$executeRaw`
-      INSERT INTO "User" ("id", "name", "email", "phone", "cpf", "address", "passwordHash", "role", "createdAt", "updatedAt")
-      VALUES (
-        ${id},
-        ${name},
-        ${email ?? null},
-        ${phone ?? null},
-        ${cpf ?? null},
-        ${address ?? null},
-        ${passwordHash},
-        ${resolvedRole}::"Role",
-        NOW(),
-        NOW()
-      )
-    `;
+    // Prisma cannot cast a bound parameter to a custom enum ($1::"Role" fails).
+    // We use Prisma.raw only for the whitelisted enum literal — safe against injection.
+    await prisma.$executeRaw(
+      Prisma.sql`
+        INSERT INTO "User" ("id", "name", "email", "phone", "cpf", "address", "passwordHash", "role", "createdAt", "updatedAt")
+        VALUES (
+          ${id},
+          ${name},
+          ${email ?? null},
+          ${phone ?? null},
+          ${cpf ?? null},
+          ${address ?? null},
+          ${passwordHash},
+          ${Prisma.raw(`'${resolvedRole}'`)}::"Role",
+          NOW(),
+          NOW()
+        )
+      `,
+    );
 
     return this.findById(id);
   }
