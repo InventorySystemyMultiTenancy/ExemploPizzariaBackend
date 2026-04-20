@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import { randomUUID } from "crypto";
 
 // Raw SQL workaround: Prisma Client on Render may be stale (generated before
 // phone/cpf/address columns were added). We use $queryRaw/$executeRaw for
@@ -55,13 +56,15 @@ export class UserRepository {
   }
 
   async create({ name, email, phone, cpf, address, passwordHash, role }) {
-    // Use raw SQL for the full insert to bypass the stale Prisma Client enum
-    // validation — the ORM was generated before MOTOBOY was added to the Role enum.
+    // Use raw SQL to bypass stale Prisma Client enum validation
+    // (MOTOBOY was added after the client was generated on Render)
     const resolvedRole = role || "CLIENTE";
-    const rows = await prisma.$queryRaw`
+    const id = randomUUID(); // Node.js built-in, no extension needed
+
+    await prisma.$executeRaw`
       INSERT INTO "User" ("id", "name", "email", "phone", "cpf", "address", "passwordHash", "role", "createdAt", "updatedAt")
       VALUES (
-        gen_random_uuid()::text,
+        ${id},
         ${name},
         ${email ?? null},
         ${phone ?? null},
@@ -72,11 +75,7 @@ export class UserRepository {
         NOW(),
         NOW()
       )
-      RETURNING "id"
     `;
-
-    const id = rows[0]?.id;
-    if (!id) throw new Error("Falha ao criar usuario.");
 
     return this.findById(id);
   }
