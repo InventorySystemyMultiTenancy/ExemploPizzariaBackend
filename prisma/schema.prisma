@@ -27,6 +27,7 @@ enum OrderStatus {
   NO_FORNO
   SAIU_PARA_ENTREGA
   ENTREGUE
+  CANCELADO
 }
 
 enum PaymentStatus {

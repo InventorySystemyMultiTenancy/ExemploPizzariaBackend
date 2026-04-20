@@ -74,7 +74,7 @@ export class OrderRepository {
   async findAllActive() {
     return prisma.order.findMany({
       where: {
-        status: { not: "ENTREGUE" },
+        status: { notIn: ["ENTREGUE", "CANCELADO"] },
       },
       include: {
         items: {

@@ -112,6 +112,36 @@ export class OrderService {
     return order;
   }
 
+  async cancelOrder(orderId) {
+    const order = await this.orderRepository.findById(orderId);
+
+    if (!order) {
+      throw new AppError("Pedido nao encontrado.", 404);
+    }
+
+    if (order.status === "ENTREGUE") {
+      throw new AppError("Pedido ja entregue nao pode ser cancelado.", 409);
+    }
+
+    if (order.status === "CANCELADO") {
+      throw new AppError("Pedido ja esta cancelado.", 409);
+    }
+
+    const updatedOrder = await this.orderRepository.updateStatus(
+      orderId,
+      "CANCELADO",
+    );
+
+    emitOrderStatusUpdated({
+      orderId: updatedOrder.id,
+      userId: order.userId,
+      previousStatus: order.status,
+      status: "CANCELADO",
+    });
+
+    return updatedOrder;
+  }
+
   async updateOrderStatus(orderId, nextStatus) {
     const order = await this.orderRepository.findById(orderId);
 

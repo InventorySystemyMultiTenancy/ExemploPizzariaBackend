@@ -80,6 +80,19 @@ export class OrderController {
     }
   }
 
+  async cancel(req, res, next) {
+    try {
+      const updatedOrder = await orderService.cancelOrder(req.params.orderId);
+
+      return res.status(200).json({
+        message: "Pedido cancelado.",
+        data: updatedOrder,
+      });
+    } catch (error) {
+      return this.#handleError(error, next);
+    }
+  }
+
   async analytics(_req, res, next) {
     try {
       const analytics = await orderService.getSalesAnalytics();
