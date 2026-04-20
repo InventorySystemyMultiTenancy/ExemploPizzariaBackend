@@ -116,9 +116,10 @@ export class OrderController {
     }
   }
 
-  async analytics(_req, res, next) {
+  async analytics(req, res, next) {
     try {
-      const analytics = await orderService.getSalesAnalytics();
+      const { from, to } = req.query;
+      const analytics = await orderService.getSalesAnalytics({ from, to });
 
       return res.status(200).json({
         data: analytics,

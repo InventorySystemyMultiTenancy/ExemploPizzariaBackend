@@ -285,21 +285,45 @@ export class OrderService {
     });
   }
 
-  async getSalesAnalytics() {
+  async getSalesAnalytics({ from, to } = {}) {
     const orders = await this.orderRepository.findAllForAnalytics();
     const now = new Date();
     const todayStart = startOfDay(now);
     const monthStart = startOfMonth(now);
-    const last7DaysStart = new Date(todayStart);
-    last7DaysStart.setDate(last7DaysStart.getDate() - 6);
 
-    const paidOrders = orders.filter(
+    // Build date range
+    let rangeStart = null;
+    let rangeEnd = null;
+    if (from) {
+      rangeStart = new Date(from);
+      rangeEnd = new Date(to ?? now);
+      rangeEnd.setHours(23, 59, 59, 999);
+    }
+
+    // All paid orders (unfiltered) — used for today/month sub-metrics
+    const allPaidOrders = orders.filter(
       (order) => order.paymentStatus === "APROVADO",
     );
-    const paidToday = paidOrders.filter(
+
+    // Paid orders filtered to the selected period — used for main totals
+    const paidOrders = rangeStart
+      ? allPaidOrders.filter((o) => {
+          const d = new Date(o.createdAt);
+          return d >= rangeStart && d <= rangeEnd;
+        })
+      : allPaidOrders;
+
+    const filteredOrders = rangeStart
+      ? orders.filter((o) => {
+          const d = new Date(o.createdAt);
+          return d >= rangeStart && d <= rangeEnd;
+        })
+      : orders;
+
+    const paidToday = allPaidOrders.filter(
       (order) => new Date(order.createdAt) >= todayStart,
     );
-    const paidThisMonth = paidOrders.filter(
+    const paidThisMonth = allPaidOrders.filter(
       (order) => new Date(order.createdAt) >= monthStart,
     );
 
@@ -333,34 +357,71 @@ export class OrderService {
       ? totalRevenue / paidOrders.length
       : 0;
 
-    const statusCounts = orders.reduce((acc, order) => {
+    const statusCounts = filteredOrders.reduce((acc, order) => {
       acc[order.status] = (acc[order.status] ?? 0) + 1;
       return acc;
     }, {});
 
-    const dailySalesMap = new Map();
-    for (let offset = 0; offset < 7; offset += 1) {
-      const date = new Date(last7DaysStart);
-      date.setDate(last7DaysStart.getDate() + offset);
-      const key = date.toISOString().slice(0, 10);
-      dailySalesMap.set(key, { revenue: 0, cost: 0 });
-    }
+    // Determine chart range and grouping
+    const last7DaysStart = new Date(todayStart);
+    last7DaysStart.setDate(last7DaysStart.getDate() - 6);
+    const chartFrom = rangeStart ?? last7DaysStart;
+    const chartToDate =
+      rangeEnd ??
+      (() => {
+        const d = new Date(now);
+        d.setHours(23, 59, 59, 999);
+        return d;
+      })();
+    const diffDays = Math.ceil(
+      (chartToDate - chartFrom) / (1000 * 60 * 60 * 24),
+    );
+    const groupByMonth = diffDays > 60;
 
-    for (const order of paidOrders) {
-      const createdAt = new Date(order.createdAt);
-      if (createdAt < last7DaysStart) continue;
-      const key = createdAt.toISOString().slice(0, 10);
-      if (dailySalesMap.has(key)) {
-        const entry = dailySalesMap.get(key);
-        entry.revenue += Number(order.total);
-        entry.cost += orderCost(order);
+    const salesMap = new Map();
+    if (groupByMonth) {
+      const cur = new Date(chartFrom.getFullYear(), chartFrom.getMonth(), 1);
+      const end = new Date(
+        chartToDate.getFullYear(),
+        chartToDate.getMonth(),
+        1,
+      );
+      while (cur <= end) {
+        const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`;
+        salesMap.set(key, { revenue: 0, cost: 0 });
+        cur.setMonth(cur.getMonth() + 1);
+      }
+      for (const order of paidOrders) {
+        const d = new Date(order.createdAt);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (salesMap.has(key)) {
+          const entry = salesMap.get(key);
+          entry.revenue += Number(order.total);
+          entry.cost += orderCost(order);
+        }
+      }
+    } else {
+      const cur = new Date(chartFrom);
+      cur.setHours(0, 0, 0, 0);
+      while (cur <= chartToDate) {
+        const key = cur.toISOString().slice(0, 10);
+        salesMap.set(key, { revenue: 0, cost: 0 });
+        cur.setDate(cur.getDate() + 1);
+      }
+      for (const order of paidOrders) {
+        const createdAt = new Date(order.createdAt);
+        const key = createdAt.toISOString().slice(0, 10);
+        if (salesMap.has(key)) {
+          const entry = salesMap.get(key);
+          entry.revenue += Number(order.total);
+          entry.cost += orderCost(order);
+        }
       }
     }
 
     const topProductsMap = new Map();
     for (const order of paidOrders) {
       for (const item of order.items ?? []) {
-        const name = item.productName ?? item.firstHalfProductName ?? null;
         if (item.type === "INTEIRA" && item.productName) {
           topProductsMap.set(
             item.productName,
@@ -401,19 +462,17 @@ export class OrderService {
         revenueThisMonth: Number(revenueThisMonth.toFixed(2)),
         costThisMonth: Number(costThisMonth.toFixed(2)),
         profitThisMonth: Number((revenueThisMonth - costThisMonth).toFixed(2)),
-        ordersCount: orders.length,
+        ordersCount: filteredOrders.length,
         paidOrdersCount: paidOrders.length,
         averageTicket: Number(averageTicket.toFixed(2)),
       },
       statusCounts,
-      dailySales: [...dailySalesMap.entries()].map(
-        ([date, { revenue, cost }]) => ({
-          date,
-          revenue: Number(revenue.toFixed(2)),
-          cost: Number(cost.toFixed(2)),
-          profit: Number((revenue - cost).toFixed(2)),
-        }),
-      ),
+      dailySales: [...salesMap.entries()].map(([date, { revenue, cost }]) => ({
+        date,
+        revenue: Number(revenue.toFixed(2)),
+        cost: Number(cost.toFixed(2)),
+        profit: Number((revenue - cost).toFixed(2)),
+      })),
       topProducts,
     };
   }
