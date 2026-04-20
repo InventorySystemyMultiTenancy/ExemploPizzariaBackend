@@ -128,26 +128,46 @@ export class OrderRepository {
   }
 
   async findByUserId(userId) {
-    // Usa raw SQL para evitar falha do Prisma Client ao deserializar
-    // enums adicionados depois da geração do client (ex: CANCELADO)
-    const orders = await prisma.$queryRaw`
-      SELECT
-        o.id, o."userId", o.status::text AS status,
-        o."paymentStatus"::text AS "paymentStatus",
-        o."deliveryAddress", o.notes, o."paymentMethod",
-        o."deliveryFee", o."deliveryLat", o."deliveryLon",
-        o."createdAt", o."updatedAt", o."deliveredAt"
-      FROM "Order" o
-      WHERE o."userId" = ${userId}
-      ORDER BY o."createdAt" DESC
-    `;
+    console.log("[findByUserId] start userId=", userId);
+    let orders;
+    try {
+      orders = await prisma.$queryRaw`
+        SELECT
+          o.id, o."userId", o.status::text AS status,
+          o."paymentStatus"::text AS "paymentStatus",
+          o."deliveryAddress", o.notes, o."paymentMethod",
+          o."deliveryFee", o."deliveryLat", o."deliveryLon",
+          o."createdAt", o."updatedAt", o."deliveredAt"
+        FROM "Order" o
+        WHERE o."userId" = ${userId}
+        ORDER BY o."createdAt" DESC
+      `;
+      console.log("[findByUserId] orders count=", orders.length);
+    } catch (e) {
+      console.error("[findByUserId] FALHOU na query de orders:", e);
+      throw e;
+    }
 
     if (!orders.length) return [];
 
     const orderIds = orders.map((o) => o.id);
+    console.log("[findByUserId] orderIds=", orderIds);
 
-    const items = await this._fetchItemsForOrders(orderIds);
-    const payments = await this._fetchPaymentsForOrders(orderIds);
+    let items, payments;
+    try {
+      items = await this._fetchItemsForOrders(orderIds);
+      console.log("[findByUserId] items count=", items.length);
+    } catch (e) {
+      console.error("[findByUserId] FALHOU em _fetchItemsForOrders:", e);
+      throw e;
+    }
+    try {
+      payments = await this._fetchPaymentsForOrders(orderIds);
+      console.log("[findByUserId] payments count=", payments.length);
+    } catch (e) {
+      console.error("[findByUserId] FALHOU em _fetchPaymentsForOrders:", e);
+      throw e;
+    }
 
     return orders.map((o) => ({
       ...o,
@@ -157,25 +177,46 @@ export class OrderRepository {
   }
 
   async findAllActive() {
-    // Raw SQL: exclui ENTREGUE e CANCELADO (CANCELADO não existe no client gerado)
-    const orders = await prisma.$queryRaw`
-      SELECT
-        o.id, o."userId", o.status::text AS status,
-        o."paymentStatus"::text AS "paymentStatus",
-        o."deliveryAddress", o.notes, o."paymentMethod",
-        o."deliveryFee", o."deliveryLat", o."deliveryLon",
-        o."createdAt", o."updatedAt", o."deliveredAt"
-      FROM "Order" o
-      WHERE o.status::text NOT IN ('ENTREGUE','CANCELADO')
-      ORDER BY o."createdAt" ASC
-    `;
+    console.log("[findAllActive] start");
+    let orders;
+    try {
+      orders = await prisma.$queryRaw`
+        SELECT
+          o.id, o."userId", o.status::text AS status,
+          o."paymentStatus"::text AS "paymentStatus",
+          o."deliveryAddress", o.notes, o."paymentMethod",
+          o."deliveryFee", o."deliveryLat", o."deliveryLon",
+          o."createdAt", o."updatedAt", o."deliveredAt"
+        FROM "Order" o
+        WHERE o.status::text NOT IN ('ENTREGUE','CANCELADO')
+        ORDER BY o."createdAt" ASC
+      `;
+      console.log("[findAllActive] orders count=", orders.length);
+    } catch (e) {
+      console.error("[findAllActive] FALHOU na query de orders:", e);
+      throw e;
+    }
 
     if (!orders.length) return [];
 
     const orderIds = orders.map((o) => o.id);
+    console.log("[findAllActive] orderIds=", orderIds);
 
-    const items = await this._fetchItemsForOrders(orderIds);
-    const users = await this._fetchUsersForOrders(orderIds);
+    let items, users;
+    try {
+      items = await this._fetchItemsForOrders(orderIds);
+      console.log("[findAllActive] items count=", items.length);
+    } catch (e) {
+      console.error("[findAllActive] FALHOU em _fetchItemsForOrders:", e);
+      throw e;
+    }
+    try {
+      users = await this._fetchUsersForOrders(orderIds);
+      console.log("[findAllActive] users count=", users.length);
+    } catch (e) {
+      console.error("[findAllActive] FALHOU em _fetchUsersForOrders:", e);
+      throw e;
+    }
 
     return orders.map((o) => ({
       ...o,
