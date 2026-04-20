@@ -66,18 +66,25 @@ export class UserRepository {
     const resolvedRole = VALID_ROLES.includes(role) ? role : "CLIENTE";
     const id = randomUUID();
 
-    // $executeRawUnsafe: the role literal is safe (validated against whitelist above).
-    // All user-supplied values are bound parameters ($1–$7), never string-interpolated.
+    // Step 1: insert with CLIENTE role via ORM (always valid in stale client)
+    await prisma.user.create({
+      data: {
+        id,
+        name,
+        email: email ?? undefined,
+        passwordHash,
+        role: "CLIENTE",
+      },
+    });
+
+    // Step 2: patch phone/cpf/address/role via raw SQL (bypasses stale enum)
     await prisma.$executeRawUnsafe(
-      `INSERT INTO "User" ("id","name","email","phone","cpf","address","passwordHash","role","createdAt","updatedAt")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'${resolvedRole}'::"Role",NOW(),NOW())`,
-      id,
-      name,
-      email ?? null,
+      `UPDATE "User" SET "phone"=$1,"cpf"=$2,"address"=$3,"role"=$4::"Role","updatedAt"=NOW() WHERE "id"=$5`,
       phone ?? null,
       cpf ?? null,
       address ?? null,
-      passwordHash,
+      resolvedRole,
+      id,
     );
 
     return this.findById(id);
