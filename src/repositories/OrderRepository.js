@@ -91,6 +91,7 @@ export class OrderRepository {
   }
 
   async findAllHistory({ clientName, dateFrom, dateTo } = {}) {
+    const hasFilter = clientName || dateFrom || dateTo;
     const where = {};
 
     if (clientName) {
@@ -123,6 +124,7 @@ export class OrderRepository {
         payment: true,
       },
       orderBy: { createdAt: "desc" },
+      ...(hasFilter ? {} : { take: 15 }),
     });
   }
 
