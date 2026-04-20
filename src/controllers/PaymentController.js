@@ -43,7 +43,7 @@ export class PaymentController {
               title: "Pedido Pizzaria Fellice",
               description: `Pedido #${order.id.slice(-6).toUpperCase()}`,
               quantity: 1,
-              unit_price: Number(order.total),
+              unit_price: parseFloat(Number(order.total).toFixed(2)),
               currency_id: "BRL",
             },
           ],
