@@ -38,6 +38,9 @@ export class DeliveryService {
             format: "json",
             limit: 1,
             countrycodes: "br",
+            // Restringe ao município de São Paulo (bounding box)
+            viewbox: "-46.8254,-23.3568,-46.3648,-24.0085",
+            bounded: 1,
           },
           headers: {
             // User-Agent personalizado exigido pelo Nominatim
