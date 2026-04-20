@@ -55,34 +55,29 @@ export class UserRepository {
   }
 
   async create({ name, email, phone, cpf, address, passwordHash, role }) {
-    // 1. Insert with only the columns the stale Prisma Client knows about
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email: email ?? undefined,
-        passwordHash,
-        role: role || "CLIENTE",
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-      },
-    });
-
-    // 2. Set new columns via raw SQL
-    await prisma.$executeRaw`
-      UPDATE "User"
-      SET
-        "phone"   = ${phone ?? null},
-        "cpf"     = ${cpf ?? null},
-        "address" = ${address ?? null}
-      WHERE "id" = ${user.id}
+    // Use raw SQL for the full insert to bypass the stale Prisma Client enum
+    // validation — the ORM was generated before MOTOBOY was added to the Role enum.
+    const resolvedRole = role || "CLIENTE";
+    const rows = await prisma.$queryRaw`
+      INSERT INTO "User" ("id", "name", "email", "phone", "cpf", "address", "passwordHash", "role", "createdAt", "updatedAt")
+      VALUES (
+        gen_random_uuid()::text,
+        ${name},
+        ${email ?? null},
+        ${phone ?? null},
+        ${cpf ?? null},
+        ${address ?? null},
+        ${passwordHash},
+        ${resolvedRole}::"Role",
+        NOW(),
+        NOW()
+      )
+      RETURNING "id"
     `;
 
-    // 3. Return the full row
-    return this.findById(user.id);
+    const id = rows[0]?.id;
+    if (!id) throw new Error("Falha ao criar usuario.");
+
+    return this.findById(id);
   }
 }
