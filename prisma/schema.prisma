@@ -102,6 +102,7 @@ model Order {
   paymentMethod  String?
   isPickup       Boolean      @default(false)
   assignedMotoboyId String?
+  deliveryCode   String?
   notes          String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

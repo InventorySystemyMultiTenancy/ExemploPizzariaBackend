@@ -89,6 +89,9 @@ export class OrderService {
       total: new Prisma.Decimal(fromCents(totalCents)),
       paymentStatus: "PENDENTE",
       ...(isPickup != null ? { isPickup } : {}),
+      ...(isPickup
+        ? {}
+        : { deliveryCode: String(Math.floor(1000 + Math.random() * 9000)) }),
       ...(paymentMethod != null ? { paymentMethod } : {}),
       ...(deliveryFee != null
         ? { deliveryFee: new Prisma.Decimal(deliveryFee) }
@@ -491,6 +494,32 @@ export class OrderService {
 
   async assignMotoboy(orderId, motoboyId) {
     await this.orderRepository.assignMotoboy(orderId, motoboyId);
+  }
+
+  async confirmDelivery(orderId, code) {
+    try {
+      const updatedOrder = await this.orderRepository.confirmDelivery(
+        orderId,
+        code,
+      );
+      if (!updatedOrder) throw new AppError("Pedido não encontrado.", 404);
+      emitOrderStatusUpdated({
+        orderId: updatedOrder.id,
+        userId: updatedOrder.userId,
+        previousStatus: "SAIU_PARA_ENTREGA",
+        status: "ENTREGUE",
+      });
+      return updatedOrder;
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      if (err.message === "CODE_INVALID")
+        throw new AppError("Código inválido.", 400);
+      if (err.message === "STATUS_INVALID")
+        throw new AppError("Pedido não está em trânsito.", 400);
+      if (err.message === "IS_PICKUP")
+        throw new AppError("Pedido de retirada não usa código.", 400);
+      throw err;
+    }
   }
 
   async deleteOrder(orderId, userId) {

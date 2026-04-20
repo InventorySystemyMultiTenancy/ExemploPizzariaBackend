@@ -184,6 +184,24 @@ export class OrderController {
     }
   }
 
+  async confirmDelivery(req, res, next) {
+    try {
+      const { code } = req.body;
+      if (!code || typeof code !== "string") {
+        throw new AppError("Código é obrigatório.", 422);
+      }
+      const order = await orderService.confirmDelivery(
+        req.params.orderId,
+        code.trim(),
+      );
+      return res
+        .status(200)
+        .json({ message: "Entrega confirmada.", data: order });
+    } catch (error) {
+      return this.#handleError(error, next);
+    }
+  }
+
   #handleError(error, next) {
     if (error instanceof ZodError) {
       return next(new AppError("Payload invalido.", 422, error.flatten()));

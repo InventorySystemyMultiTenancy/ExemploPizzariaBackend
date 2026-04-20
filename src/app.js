@@ -203,6 +203,13 @@ app.patch(
   (req, res, next) => orderController.assignMotoboy(req, res, next),
 );
 
+app.post(
+  "/api/orders/:orderId/confirm-delivery",
+  authenticateToken,
+  authorizeRoles("ADMIN", "FUNCIONARIO", "COZINHA", "MOTOBOY"),
+  (req, res, next) => orderController.confirmDelivery(req, res, next),
+);
+
 app.get(
   "/api/admin/motoboys",
   authenticateToken,

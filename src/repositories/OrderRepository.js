@@ -64,7 +64,7 @@ export class OrderRepository {
              o."paymentStatus"::text AS "paymentStatus",
              o."deliveryAddress", o.notes, o."paymentMethod",
              o.total, o."deliveryFee", o."deliveryLat", o."deliveryLon",
-             o."isPickup", o."assignedMotoboyId",
+             o."isPickup", o."assignedMotoboyId", o."deliveryCode",
              o."createdAt", o."updatedAt", o."deliveredAt"
       FROM "Order" o WHERE o.id = ${orderId}
     `;
@@ -138,7 +138,7 @@ export class OrderRepository {
           o."paymentStatus"::text AS "paymentStatus",
           o."deliveryAddress", o.notes, o."paymentMethod",
           o.total, o."deliveryFee", o."deliveryLat", o."deliveryLon",
-          o."isPickup", o."assignedMotoboyId",
+          o."isPickup", o."assignedMotoboyId", o."deliveryCode",
           o."createdAt", o."updatedAt", o."deliveredAt"
         FROM "Order" o
         WHERE o."userId" = ${userId}
@@ -182,6 +182,25 @@ export class OrderRepository {
     await prisma.$executeRaw`
       UPDATE "Order" SET "assignedMotoboyId" = ${motoboyId} WHERE id = ${orderId}
     `;
+  }
+
+  async confirmDelivery(orderId, code) {
+    const rows = await prisma.$queryRaw`
+      SELECT "deliveryCode", status::text AS status, "isPickup"
+      FROM "Order" WHERE id = ${orderId}
+    `;
+    if (!rows.length) return null;
+    const order = rows[0];
+    if (order.status !== "SAIU_PARA_ENTREGA") {
+      throw new Error("STATUS_INVALID");
+    }
+    if (order.isPickup) {
+      throw new Error("IS_PICKUP");
+    }
+    if (order.deliveryCode !== code) {
+      throw new Error("CODE_INVALID");
+    }
+    return this.updateStatus(orderId, "ENTREGUE", new Date());
   }
 
   async deleteById(orderId, userId) {
