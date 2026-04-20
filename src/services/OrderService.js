@@ -253,7 +253,8 @@ export class OrderService {
   }
 
   async listActiveOrders() {
-    return this.orderRepository.findAllActive();
+    const orders = await this.orderRepository.findAllActive();
+    return orders.filter((o) => o.status !== "CANCELADO");
   }
 
   async getSalesAnalytics() {
