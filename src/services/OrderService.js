@@ -137,6 +137,7 @@ export class OrderService {
       userId: order.userId,
       previousStatus: order.status,
       status: "CANCELADO",
+      paymentWasPending: order.paymentStatus === "PENDENTE",
     });
 
     return updatedOrder;
