@@ -44,6 +44,19 @@ export class OrderRepository {
   }
 
   async updateStatus(orderId, status, deliveredAt = null) {
+    // CANCELADO foi adicionado ao enum depois da geração do Prisma Client no Render,
+    // portanto usamos raw SQL para evitar falha de validação do client gerado.
+    if (status === "CANCELADO") {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "Order" SET "status" = 'CANCELADO'::"OrderStatus", "updatedAt" = NOW() ${deliveredAt ? `, "deliveredAt" = '${deliveredAt.toISOString()}'` : ""} WHERE "id" = $1`,
+        orderId,
+      );
+      return prisma.order.findUnique({
+        where: { id: orderId },
+        include: { items: true, payment: true },
+      });
+    }
+
     return prisma.order.update({
       where: { id: orderId },
       data: {
