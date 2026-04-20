@@ -307,8 +307,7 @@ export class OrderRepository {
     const orders = await prisma.$queryRaw`
       SELECT o.id, o."userId", o.status::text AS status,
              o."paymentStatus"::text AS "paymentStatus",
-             o."deliveryAddress", o."paymentMethod",
-             o."deliveryFee", o."createdAt", o."updatedAt", o."deliveredAt"
+             o.total, o."deliveryFee", o."createdAt"
       FROM "Order" o
       ORDER BY o."createdAt" ASC
     `;
@@ -317,7 +316,27 @@ export class OrderRepository {
 
     const orderIds = orders.map((o) => o.id);
 
-    const items = await this._fetchItemsForOrders(orderIds);
+    // Busca itens com costPrice do tamanho correspondente
+    const ph = orderIds.map((_, i) => `$${i + 1}`).join(", ");
+    const items = await prisma.$queryRawUnsafe(
+      `SELECT oi."orderId", oi.quantity, oi.type, oi.size,
+              oi."unitPrice", oi."totalPrice",
+              oi."productId", oi."firstHalfProductId", oi."secondHalfProductId",
+              p.name AS "productName",
+              fp.name AS "firstHalfProductName",
+              sp.name AS "secondHalfProductName",
+              COALESCE(ps."costPrice", 0) AS "costPrice"
+       FROM "OrderItem" oi
+       LEFT JOIN "Product" p ON p.id = oi."productId"
+       LEFT JOIN "Product" fp ON fp.id = oi."firstHalfProductId"
+       LEFT JOIN "Product" sp ON sp.id = oi."secondHalfProductId"
+       LEFT JOIN "ProductSize" ps ON (
+         ps."productId" = COALESCE(oi."productId", oi."firstHalfProductId")
+         AND ps.size = oi.size::\"ProductSizeEnum\"
+       )
+       WHERE oi."orderId" IN (${ph})`,
+      ...orderIds,
+    );
 
     return orders.map((o) => ({
       ...o,

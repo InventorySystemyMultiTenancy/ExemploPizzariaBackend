@@ -42,7 +42,11 @@ export class ProductRepository {
         description: description ?? null,
         imageUrl: imageUrl ?? null,
         sizes: {
-          create: sizes.map(({ size, price }) => ({ size, price })),
+          create: sizes.map(({ size, price, costPrice }) => ({
+            size,
+            price,
+            ...(costPrice != null ? { costPrice } : {}),
+          })),
         },
       },
       include: { sizes: { orderBy: { size: "asc" } } },
@@ -70,7 +74,12 @@ export class ProductRepository {
       if (sizes) {
         await tx.productSize.deleteMany({ where: { productId } });
         await tx.productSize.createMany({
-          data: sizes.map(({ size, price }) => ({ productId, size, price })),
+          data: sizes.map(({ size, price, costPrice }) => ({
+            productId,
+            size,
+            price,
+            ...(costPrice != null ? { costPrice } : {}),
+          })),
         });
       }
 

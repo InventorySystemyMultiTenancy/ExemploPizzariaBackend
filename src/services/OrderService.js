@@ -302,9 +302,35 @@ export class OrderService {
     const paidThisMonth = paidOrders.filter(
       (order) => new Date(order.createdAt) >= monthStart,
     );
+
+    // Calcula custo total de um pedido: soma costPrice * quantity de cada item
+    const orderCost = (order) =>
+      (order.items ?? []).reduce(
+        (sum, item) =>
+          sum + Number(item.costPrice ?? 0) * Number(item.quantity ?? 1),
+        0,
+      );
+
+    const totalRevenue = paidOrders.reduce(
+      (sum, o) => sum + Number(o.total),
+      0,
+    );
+    const totalCost = paidOrders.reduce((sum, o) => sum + orderCost(o), 0);
+
+    const revenueToday = paidToday.reduce((sum, o) => sum + Number(o.total), 0);
+    const costToday = paidToday.reduce((sum, o) => sum + orderCost(o), 0);
+
+    const revenueThisMonth = paidThisMonth.reduce(
+      (sum, o) => sum + Number(o.total),
+      0,
+    );
+    const costThisMonth = paidThisMonth.reduce(
+      (sum, o) => sum + orderCost(o),
+      0,
+    );
+
     const averageTicket = paidOrders.length
-      ? paidOrders.reduce((sum, order) => sum + Number(order.total), 0) /
-        paidOrders.length
+      ? totalRevenue / paidOrders.length
       : 0;
 
     const statusCounts = orders.reduce((acc, order) => {
@@ -317,43 +343,43 @@ export class OrderService {
       const date = new Date(last7DaysStart);
       date.setDate(last7DaysStart.getDate() + offset);
       const key = date.toISOString().slice(0, 10);
-      dailySalesMap.set(key, 0);
+      dailySalesMap.set(key, { revenue: 0, cost: 0 });
     }
 
     for (const order of paidOrders) {
       const createdAt = new Date(order.createdAt);
-      if (createdAt < last7DaysStart) {
-        continue;
-      }
-
+      if (createdAt < last7DaysStart) continue;
       const key = createdAt.toISOString().slice(0, 10);
       if (dailySalesMap.has(key)) {
-        dailySalesMap.set(key, dailySalesMap.get(key) + Number(order.total));
+        const entry = dailySalesMap.get(key);
+        entry.revenue += Number(order.total);
+        entry.cost += orderCost(order);
       }
     }
 
     const topProductsMap = new Map();
     for (const order of paidOrders) {
       for (const item of order.items ?? []) {
-        if (item.type === "INTEIRA" && item.product?.name) {
+        const name = item.productName ?? item.firstHalfProductName ?? null;
+        if (item.type === "INTEIRA" && item.productName) {
           topProductsMap.set(
-            item.product.name,
-            (topProductsMap.get(item.product.name) ?? 0) + item.quantity,
+            item.productName,
+            (topProductsMap.get(item.productName) ?? 0) + Number(item.quantity),
           );
           continue;
         }
-
-        if (item.firstHalf?.name) {
+        if (item.firstHalfProductName) {
           topProductsMap.set(
-            item.firstHalf.name,
-            (topProductsMap.get(item.firstHalf.name) ?? 0) + item.quantity,
+            item.firstHalfProductName,
+            (topProductsMap.get(item.firstHalfProductName) ?? 0) +
+              Number(item.quantity),
           );
         }
-
-        if (item.secondHalf?.name) {
+        if (item.secondHalfProductName) {
           topProductsMap.set(
-            item.secondHalf.name,
-            (topProductsMap.get(item.secondHalf.name) ?? 0) + item.quantity,
+            item.secondHalfProductName,
+            (topProductsMap.get(item.secondHalfProductName) ?? 0) +
+              Number(item.quantity),
           );
         }
       }
@@ -366,30 +392,28 @@ export class OrderService {
 
     return {
       summary: {
-        totalRevenue: Number(
-          paidOrders
-            .reduce((sum, order) => sum + Number(order.total), 0)
-            .toFixed(2),
-        ),
-        revenueToday: Number(
-          paidToday
-            .reduce((sum, order) => sum + Number(order.total), 0)
-            .toFixed(2),
-        ),
-        revenueThisMonth: Number(
-          paidThisMonth
-            .reduce((sum, order) => sum + Number(order.total), 0)
-            .toFixed(2),
-        ),
+        totalRevenue: Number(totalRevenue.toFixed(2)),
+        totalCost: Number(totalCost.toFixed(2)),
+        totalProfit: Number((totalRevenue - totalCost).toFixed(2)),
+        revenueToday: Number(revenueToday.toFixed(2)),
+        costToday: Number(costToday.toFixed(2)),
+        profitToday: Number((revenueToday - costToday).toFixed(2)),
+        revenueThisMonth: Number(revenueThisMonth.toFixed(2)),
+        costThisMonth: Number(costThisMonth.toFixed(2)),
+        profitThisMonth: Number((revenueThisMonth - costThisMonth).toFixed(2)),
         ordersCount: orders.length,
         paidOrdersCount: paidOrders.length,
         averageTicket: Number(averageTicket.toFixed(2)),
       },
       statusCounts,
-      dailySales: [...dailySalesMap.entries()].map(([date, revenue]) => ({
-        date,
-        revenue: Number(revenue.toFixed(2)),
-      })),
+      dailySales: [...dailySalesMap.entries()].map(
+        ([date, { revenue, cost }]) => ({
+          date,
+          revenue: Number(revenue.toFixed(2)),
+          cost: Number(cost.toFixed(2)),
+          profit: Number((revenue - cost).toFixed(2)),
+        }),
+      ),
       topProducts,
     };
   }

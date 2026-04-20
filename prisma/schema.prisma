@@ -80,6 +80,7 @@ model ProductSize {
   productId String
   size      ProductSizeEnum
   price     Decimal         @db.Decimal(10, 2)
+  costPrice Decimal?        @db.Decimal(10, 2)
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 

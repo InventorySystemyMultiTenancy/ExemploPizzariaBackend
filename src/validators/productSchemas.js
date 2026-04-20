@@ -3,6 +3,7 @@ import { z } from "zod";
 const sizeSchema = z.object({
   size: z.enum(["PEQUENA", "MEDIA", "GRANDE", "FAMILIA"]),
   price: z.number().positive("Preco deve ser positivo"),
+  costPrice: z.number().nonnegative("Custo deve ser positivo").optional(),
 });
 
 export const createProductSchema = z.object({
