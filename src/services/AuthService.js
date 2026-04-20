@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { AppError } from "../errors/AppError.js";
 import { UserRepository } from "../repositories/UserRepository.js";
 
-const STAFF_ROLES = new Set(["ADMIN", "FUNCIONARIO", "COZINHA"]);
+const STAFF_ROLES = new Set(["ADMIN", "FUNCIONARIO", "COZINHA", "MOTOBOY"]);
 
 export class AuthService {
   constructor(userRepository = new UserRepository()) {
