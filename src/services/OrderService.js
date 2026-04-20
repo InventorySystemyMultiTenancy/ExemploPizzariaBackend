@@ -87,6 +87,7 @@ export class OrderService {
       notes,
       total: new Prisma.Decimal(fromCents(totalCents)),
       paymentStatus: "PENDENTE",
+      ...(paymentMethod != null ? { paymentMethod } : {}),
       ...(deliveryFee != null
         ? { deliveryFee: new Prisma.Decimal(deliveryFee) }
         : {}),
