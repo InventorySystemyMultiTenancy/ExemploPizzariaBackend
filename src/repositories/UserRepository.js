@@ -1,6 +1,5 @@
 import { prisma } from "../lib/prisma.js";
 import { randomUUID } from "crypto";
-import { Prisma } from "@prisma/client";
 
 // Raw SQL workaround: Prisma Client on Render may be stale (generated before
 // phone/cpf/address columns were added). We use $queryRaw/$executeRaw for
@@ -67,24 +66,18 @@ export class UserRepository {
     const resolvedRole = VALID_ROLES.includes(role) ? role : "CLIENTE";
     const id = randomUUID();
 
-    // Prisma cannot cast a bound parameter to a custom enum ($1::"Role" fails).
-    // We use Prisma.raw only for the whitelisted enum literal — safe against injection.
-    await prisma.$executeRaw(
-      Prisma.sql`
-        INSERT INTO "User" ("id", "name", "email", "phone", "cpf", "address", "passwordHash", "role", "createdAt", "updatedAt")
-        VALUES (
-          ${id},
-          ${name},
-          ${email ?? null},
-          ${phone ?? null},
-          ${cpf ?? null},
-          ${address ?? null},
-          ${passwordHash},
-          ${Prisma.raw(`'${resolvedRole}'`)}::"Role",
-          NOW(),
-          NOW()
-        )
-      `,
+    // $executeRawUnsafe: the role literal is safe (validated against whitelist above).
+    // All user-supplied values are bound parameters ($1–$7), never string-interpolated.
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "User" ("id","name","email","phone","cpf","address","passwordHash","role","createdAt","updatedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'${resolvedRole}'::"Role",NOW(),NOW())`,
+      id,
+      name,
+      email ?? null,
+      phone ?? null,
+      cpf ?? null,
+      address ?? null,
+      passwordHash,
     );
 
     return this.findById(id);
