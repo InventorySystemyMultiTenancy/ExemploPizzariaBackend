@@ -20,7 +20,16 @@ export const createOrderSchema = z.object({
   deliveryAddress: z.string().min(8).max(255),
   notes: z.string().max(1000).optional(),
   paymentMethod: z.string().min(2).max(50).optional(),
+  deliveryFee: z.number().nonnegative().optional(),
+  deliveryLat: z.number().optional(),
+  deliveryLon: z.number().optional(),
   items: z.array(itemSchema).min(1).max(30),
+});
+
+export const deliveryFreightSchema = z.object({
+  cep: z.string().regex(/^\d{5}-?\d{3}$/, "CEP inválido"),
+  numero: z.string().min(1).max(20),
+  complemento: z.string().max(100).optional(),
 });
 
 export const updateOrderStatusSchema = z.object({

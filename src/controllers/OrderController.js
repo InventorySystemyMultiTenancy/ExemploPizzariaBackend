@@ -80,6 +80,15 @@ export class OrderController {
     }
   }
 
+  async motoboyOrders(_req, res, next) {
+    try {
+      const orders = await orderService.listMotoboyOrders();
+      return res.status(200).json({ data: orders });
+    } catch (error) {
+      return this.#handleError(error, next);
+    }
+  }
+
   async history(req, res, next) {
     try {
       const { clientName, dateFrom, dateTo } = req.query;

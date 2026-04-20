@@ -44,7 +44,16 @@ export class OrderService {
     this.paymentRepository = paymentRepository;
   }
 
-  async createOrder({ userId, deliveryAddress, notes, items, paymentMethod }) {
+  async createOrder({
+    userId,
+    deliveryAddress,
+    notes,
+    items,
+    paymentMethod,
+    deliveryFee,
+    deliveryLat,
+    deliveryLon,
+  }) {
     if (!items?.length) {
       throw new AppError("Pedido deve conter ao menos 1 item.", 422);
     }
@@ -78,6 +87,11 @@ export class OrderService {
       notes,
       total: new Prisma.Decimal(fromCents(totalCents)),
       paymentStatus: "PENDENTE",
+      ...(deliveryFee != null
+        ? { deliveryFee: new Prisma.Decimal(deliveryFee) }
+        : {}),
+      ...(deliveryLat != null ? { deliveryLat } : {}),
+      ...(deliveryLon != null ? { deliveryLon } : {}),
       items: {
         create: normalizedItems.map((item) => ({
           quantity: item.quantity,
@@ -251,6 +265,10 @@ export class OrderService {
 
   async listOrdersByUser(userId) {
     return this.orderRepository.findByUserId(userId);
+  }
+
+  async listMotoboyOrders() {
+    return this.orderRepository.findForMotoboy();
   }
 
   async listActiveOrders() {

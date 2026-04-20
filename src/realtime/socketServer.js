@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 
 let ioInstance = null;
 
-const STAFF_ROLES = new Set(["ADMIN", "FUNCIONARIO", "COZINHA"]);
+const STAFF_ROLES = new Set(["ADMIN", "FUNCIONARIO", "COZINHA", "MOTOBOY"]);
 
 function getOrigin() {
   return process.env.CORS_ORIGIN || "http://localhost:5173";

@@ -90,6 +90,23 @@ export class OrderRepository {
     });
   }
 
+  async findForMotoboy() {
+    return prisma.order.findMany({
+      where: { status: "SAIU_PARA_ENTREGA" },
+      include: {
+        items: {
+          include: {
+            product: { select: { id: true, name: true } },
+            firstHalfProduct: { select: { id: true, name: true } },
+            secondHalfProduct: { select: { id: true, name: true } },
+          },
+        },
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
   async findAllHistory({ clientName, dateFrom, dateTo } = {}) {
     const hasFilter = clientName || dateFrom || dateTo;
     const where = {};

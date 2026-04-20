@@ -11,6 +11,8 @@ import {
 } from "./middlewares/authMiddleware.js";
 import { errorMiddleware } from "./middlewares/errorMiddleware.js";
 import { prisma } from "./lib/prisma.js";
+import { DeliveryService } from "./services/DeliveryService.js";
+import { deliveryFreightSchema } from "./validators/orderSchemas.js";
 
 const app = express();
 const authController = new AuthController();
@@ -87,6 +89,36 @@ app.get(
   (req, res, next) => orderController.listAll(req, res, next),
 );
 
+// Motoboy: pedidos prontos para entrega
+app.get(
+  "/api/motoboy/orders",
+  authenticateToken,
+  authorizeRoles("MOTOBOY", "ADMIN", "FUNCIONARIO"),
+  (req, res, next) => orderController.motoboyOrders(req, res, next),
+);
+
+// Cálculo de frete (Nominatim + OSRM)
+const deliveryService = new DeliveryService();
+app.post(
+  "/api/delivery/calculate",
+  authenticateToken,
+  async (req, res, next) => {
+    try {
+      const { cep, numero, complemento } = deliveryFreightSchema.parse(
+        req.body,
+      );
+      const result = await deliveryService.calculateFreight({
+        cep,
+        numero,
+        complemento,
+      });
+      return res.status(200).json({ data: result });
+    } catch (err) {
+      return next(err);
+    }
+  },
+);
+
 app.get(
   "/api/admin/orders/history",
   authenticateToken,
@@ -136,7 +168,7 @@ app.get(
 app.get(
   "/api/orders/:orderId",
   authenticateToken,
-  authorizeRoles("CLIENTE", "ADMIN", "COZINHA", "FUNCIONARIO"),
+  authorizeRoles("CLIENTE", "ADMIN", "COZINHA", "FUNCIONARIO", "MOTOBOY"),
   enforceOrderOwnership,
   (req, res, next) => orderController.getById(req, res, next),
 );
