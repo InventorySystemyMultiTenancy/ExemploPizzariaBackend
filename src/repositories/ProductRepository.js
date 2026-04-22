@@ -109,6 +109,71 @@ export class ProductRepository {
     });
   }
 
+  async findTopSelling(limit = 6) {
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT ranked."productId", SUM(ranked.quantity)::int AS "soldCount"
+       FROM (
+         SELECT oi."productId", oi.quantity
+         FROM "OrderItem" oi
+         INNER JOIN "Order" o ON o.id = oi."orderId"
+         WHERE oi."productId" IS NOT NULL
+           AND o."paymentStatus"::text = 'APROVADO'
+
+         UNION ALL
+
+         SELECT oi."firstHalfProductId" AS "productId", oi.quantity
+         FROM "OrderItem" oi
+         INNER JOIN "Order" o ON o.id = oi."orderId"
+         WHERE oi."firstHalfProductId" IS NOT NULL
+           AND o."paymentStatus"::text = 'APROVADO'
+
+         UNION ALL
+
+         SELECT oi."secondHalfProductId" AS "productId", oi.quantity
+         FROM "OrderItem" oi
+         INNER JOIN "Order" o ON o.id = oi."orderId"
+         WHERE oi."secondHalfProductId" IS NOT NULL
+           AND o."paymentStatus"::text = 'APROVADO'
+       ) ranked
+       INNER JOIN "Product" p ON p.id = ranked."productId"
+       WHERE p."isActive" = true
+         AND p."isCrust" = false
+       GROUP BY ranked."productId"
+       ORDER BY "soldCount" DESC, ranked."productId" ASC
+       LIMIT $1`,
+      limit,
+    );
+
+    if (!rows.length) {
+      return [];
+    }
+
+    const ids = rows.map((row) => row.productId);
+    const soldCountById = new Map(rows.map((row) => [row.productId, row.soldCount]));
+    const products = await prisma.product.findMany({
+      where: {
+        id: { in: ids },
+        isActive: true,
+        isCrust: false,
+      },
+      include: {
+        sizes: { orderBy: { size: "asc" } },
+      },
+    });
+
+    const categoryMap = await fetchCategories(products.map((product) => product.id));
+    const productsById = new Map(products.map((product) => [product.id, product]));
+
+    return ids
+      .map((id) => productsById.get(id))
+      .filter(Boolean)
+      .map((product) => ({
+        ...product,
+        category: categoryMap.get(product.id) ?? "Geral",
+        soldCount: soldCountById.get(product.id) ?? 0,
+      }));
+  }
+
   async findSizePrice(productId, size, { isCrust } = {}) {
     const sizeEntry = await prisma.productSize.findUnique({
       where: {

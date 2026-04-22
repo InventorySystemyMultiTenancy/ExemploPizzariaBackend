@@ -46,6 +46,9 @@ app.get("/health", (_req, res) => {
 app.get("/api/products", (req, res, next) =>
   productController.list(req, res, next),
 );
+app.get("/api/products/top", (req, res, next) =>
+  productController.listTopSelling(req, res, next),
+);
 app.get("/api/products/:productId", (req, res, next) =>
   productController.getById(req, res, next),
 );

@@ -31,6 +31,18 @@ export class ProductController {
     }
   }
 
+  async listTopSelling(req, res, next) {
+    try {
+      const limit = Number(req.query.limit) || 6;
+      const products = await productService.listTopSellingProducts(limit);
+      return res.status(200).json({ data: products });
+    } catch (error) {
+      return next(
+        error instanceof AppError ? error : new AppError("Erro interno.", 500),
+      );
+    }
+  }
+
   async getById(req, res, next) {
     try {
       const product = await productService.getProductById(req.params.productId);

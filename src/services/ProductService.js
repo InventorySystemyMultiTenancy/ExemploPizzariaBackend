@@ -16,6 +16,10 @@ export class ProductService {
     return this.productRepository.findAllForAdmin();
   }
 
+  async listTopSellingProducts(limit = 6) {
+    return this.productRepository.findTopSelling(limit);
+  }
+
   async createProduct(data) {
     return this.productRepository.create(data);
   }
