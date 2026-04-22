@@ -189,7 +189,14 @@ app.get(
 app.get(
   "/api/orders/:orderId",
   authenticateToken,
-  authorizeRoles("CLIENTE", "ADMIN", "COZINHA", "FUNCIONARIO", "MOTOBOY"),
+  authorizeRoles(
+    "CLIENTE",
+    "ADMIN",
+    "COZINHA",
+    "FUNCIONARIO",
+    "MOTOBOY",
+    "MESA",
+  ),
   enforceOrderOwnership,
   (req, res, next) => orderController.getById(req, res, next),
 );

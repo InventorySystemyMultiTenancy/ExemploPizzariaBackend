@@ -63,7 +63,7 @@ export class OrderRepository {
 
   async findById(orderId) {
     const rows = await prisma.$queryRaw`
-      SELECT o.id, o."userId", o.status::text AS status,
+      SELECT o.id, o."userId", o."mesaId", o.status::text AS status,
              o."paymentStatus"::text AS "paymentStatus",
              o."deliveryAddress", o.notes, o."paymentMethod",
              o.total, o."deliveryFee", o."deliveryLat", o."deliveryLon",
