@@ -204,12 +204,12 @@ export class PaymentController {
         JSON.stringify(paymentBody),
       );
 
+      // Não usa X-Pos-Id — o device_id na URL já direciona para a maquininha correta.
+      // Usar X-Pos-Id causaria broadcast para todos os devices do mesmo POS.
       const mpHeaders = {
         Authorization: `Bearer ${mpToken}`,
         "Content-Type": "application/json",
       };
-      if (deviceInfo?.external_pos_id)
-        mpHeaders["X-Pos-Id"] = deviceInfo.external_pos_id;
 
       // MP Point Integration API (sem /v2/)
       const mpResponse = await fetch(
