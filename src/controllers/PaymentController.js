@@ -190,7 +190,7 @@ export class PaymentController {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            amount: parseFloat(Number(order.total).toFixed(2)),
+            amount: Math.round(Number(order.total) * 100),
             description: `Pedido Mesa ${mesa.number} #${order.id.slice(-6).toUpperCase()}`,
             additional_info: {
               external_reference: order.id,
@@ -202,6 +202,10 @@ export class PaymentController {
 
       if (!mpResponse.ok) {
         const errBody = await mpResponse.json().catch(() => ({}));
+        console.error(
+          "[createMesaTerminalPayment] MP error:",
+          JSON.stringify(errBody),
+        );
         throw new AppError(
           errBody?.message || "Erro ao enviar para a maquininha.",
           mpResponse.status >= 500 ? 502 : 422,
