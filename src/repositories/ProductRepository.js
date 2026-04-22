@@ -13,7 +13,7 @@ export class ProductRepository {
     const products = await prisma.product.findMany({
       where: { isActive: true },
       include: { sizes: { orderBy: { size: "asc" } } },
-      orderBy: { name: "asc" },
+      orderBy: [{ isCrust: "asc" }, { name: "asc" }],
     });
     const catMap = await fetchCategories(products.map((p) => p.id));
     return products.map((p) => ({
@@ -25,7 +25,7 @@ export class ProductRepository {
   async findAllForAdmin() {
     const products = await prisma.product.findMany({
       include: { sizes: { orderBy: { size: "asc" } } },
-      orderBy: { name: "asc" },
+      orderBy: [{ isCrust: "asc" }, { name: "asc" }],
     });
     const catMap = await fetchCategories(products.map((p) => p.id));
     return products.map((p) => ({
@@ -34,13 +34,14 @@ export class ProductRepository {
     }));
   }
 
-  async create({ name, description, imageUrl, category, sizes }) {
+  async create({ name, description, imageUrl, category, isCrust, sizes }) {
     // category é gravado via raw SQL para ser compatível com qualquer versão do Prisma Client
     const product = await prisma.product.create({
       data: {
         name,
         description: description ?? null,
         imageUrl: imageUrl ?? null,
+        isCrust: isCrust ?? false,
         sizes: {
           create: sizes.map(({ size, price, costPrice }) => ({
             size,
@@ -56,7 +57,10 @@ export class ProductRepository {
     return { ...product, category: cat };
   }
 
-  async update(productId, { name, description, imageUrl, category, sizes }) {
+  async update(
+    productId,
+    { name, description, imageUrl, category, isCrust, sizes },
+  ) {
     return prisma.$transaction(async (tx) => {
       await tx.product.update({
         where: { id: productId },
@@ -64,6 +68,7 @@ export class ProductRepository {
           ...(name !== undefined && { name }),
           ...(description !== undefined && { description }),
           ...(imageUrl !== undefined && { imageUrl }),
+          ...(isCrust !== undefined && { isCrust }),
         },
       });
 
@@ -104,14 +109,36 @@ export class ProductRepository {
     });
   }
 
-  async findSizePrice(productId, size) {
-    return prisma.productSize.findUnique({
+  async findSizePrice(productId, size, { isCrust } = {}) {
+    const sizeEntry = await prisma.productSize.findUnique({
       where: {
         productId_size: {
           productId,
           size,
         },
       },
+      include: {
+        product: {
+          select: {
+            id: true,
+            isActive: true,
+            isCrust: true,
+          },
+        },
+      },
     });
+
+    if (!sizeEntry?.product?.isActive) {
+      return null;
+    }
+
+    if (
+      typeof isCrust === "boolean" &&
+      sizeEntry.product.isCrust !== isCrust
+    ) {
+      return null;
+    }
+
+    return sizeEntry;
   }
 }

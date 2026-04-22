@@ -9,11 +9,13 @@ export class OrderRepository {
     return prisma.$queryRawUnsafe(
       `SELECT oi.*, p.name AS "productName",
               fp.name AS "firstHalfProductName",
-              sp.name AS "secondHalfProductName"
+              sp.name AS "secondHalfProductName",
+              cp.name AS "crustProductName"
        FROM "OrderItem" oi
        LEFT JOIN "Product" p ON p.id = oi."productId"
        LEFT JOIN "Product" fp ON fp.id = oi."firstHalfProductId"
        LEFT JOIN "Product" sp ON sp.id = oi."secondHalfProductId"
+       LEFT JOIN "Product" cp ON cp.id = oi."crustProductId"
        WHERE oi."orderId" IN (${ph})`,
       ...orderIds,
     );
@@ -74,11 +76,13 @@ export class OrderRepository {
     const items = await prisma.$queryRaw`
       SELECT oi.*, p.name AS "productName",
              fp.name AS "firstHalfProductName",
-             sp.name AS "secondHalfProductName"
+             sp.name AS "secondHalfProductName",
+             cp.name AS "crustProductName"
       FROM "OrderItem" oi
       LEFT JOIN "Product" p ON p.id = oi."productId"
       LEFT JOIN "Product" fp ON fp.id = oi."firstHalfProductId"
       LEFT JOIN "Product" sp ON sp.id = oi."secondHalfProductId"
+      LEFT JOIN "Product" cp ON cp.id = oi."crustProductId"
       WHERE oi."orderId" = ${orderId}
     `;
     const payments = await prisma.$queryRaw`
@@ -278,6 +282,7 @@ export class OrderRepository {
             product: { select: { id: true, name: true } },
             firstHalfProduct: { select: { id: true, name: true } },
             secondHalfProduct: { select: { id: true, name: true } },
+            crustProduct: { select: { id: true, name: true } },
           },
         },
         user: { select: { id: true, name: true } },
@@ -366,18 +371,24 @@ export class OrderRepository {
     const items = await prisma.$queryRawUnsafe(
       `SELECT oi."orderId", oi.quantity, oi.type, oi.size,
               oi."unitPrice", oi."totalPrice",
-              oi."productId", oi."firstHalfProductId", oi."secondHalfProductId",
+              oi."productId", oi."firstHalfProductId", oi."secondHalfProductId", oi."crustProductId",
               p.name AS "productName",
               fp.name AS "firstHalfProductName",
               sp.name AS "secondHalfProductName",
-              COALESCE(ps."costPrice", 0) AS "costPrice"
+              cp.name AS "crustProductName",
+              COALESCE(ps."costPrice", 0) + COALESCE(cps."costPrice", 0) AS "costPrice"
        FROM "OrderItem" oi
        LEFT JOIN "Product" p ON p.id = oi."productId"
        LEFT JOIN "Product" fp ON fp.id = oi."firstHalfProductId"
        LEFT JOIN "Product" sp ON sp.id = oi."secondHalfProductId"
+       LEFT JOIN "Product" cp ON cp.id = oi."crustProductId"
        LEFT JOIN "ProductSize" ps ON (
          ps."productId" = COALESCE(oi."productId", oi."firstHalfProductId")
          AND ps.size = oi.size::\"ProductSizeEnum\"
+       )
+       LEFT JOIN "ProductSize" cps ON (
+         cps."productId" = oi."crustProductId"
+         AND cps.size = oi.size::\"ProductSizeEnum\"
        )
        WHERE oi."orderId" IN (${ph})`,
       ...orderIds,

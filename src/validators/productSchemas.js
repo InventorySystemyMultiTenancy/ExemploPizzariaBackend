@@ -15,6 +15,7 @@ export const createProductSchema = z.object({
     .optional()
     .or(z.literal("")),
   category: z.string().max(50).optional(),
+  isCrust: z.boolean().optional(),
   sizes: z.array(sizeSchema).min(1, "Informe ao menos um tamanho com preco"),
 });
 
@@ -27,5 +28,6 @@ export const updateProductSchema = z.object({
     .optional()
     .or(z.literal("")),
   category: z.string().max(50).optional(),
+  isCrust: z.boolean().optional(),
   sizes: z.array(sizeSchema).min(1).optional(),
 });

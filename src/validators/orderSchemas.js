@@ -5,6 +5,7 @@ const itemSchema = z.discriminatedUnion("type", [
     type: z.literal("INTEIRA"),
     productId: z.string().cuid(),
     size: z.enum(["PEQUENA", "MEDIA", "GRANDE", "FAMILIA"]),
+    crustProductId: z.string().cuid().optional(),
     quantity: z.number().int().positive().max(20).optional(),
   }),
   z.object({
@@ -12,6 +13,7 @@ const itemSchema = z.discriminatedUnion("type", [
     firstHalfProductId: z.string().cuid(),
     secondHalfProductId: z.string().cuid(),
     size: z.enum(["PEQUENA", "MEDIA", "GRANDE", "FAMILIA"]),
+    crustProductId: z.string().cuid().optional(),
     quantity: z.number().int().positive().max(20).optional(),
   }),
 ]);

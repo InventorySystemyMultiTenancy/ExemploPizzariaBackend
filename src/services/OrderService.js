@@ -105,9 +105,17 @@ export class OrderService {
           size: item.size,
           unitPrice: new Prisma.Decimal(fromCents(item.unitPriceCents)),
           totalPrice: new Prisma.Decimal(fromCents(item.totalPriceCents)),
+          ...(item.crustUnitPriceCents != null
+            ? {
+                crustUnitPrice: new Prisma.Decimal(
+                  fromCents(item.crustUnitPriceCents),
+                ),
+              }
+            : {}),
           productId: item.productId,
           firstHalfProductId: item.firstHalfProductId,
           secondHalfProductId: item.secondHalfProductId,
+          crustProductId: item.crustProductId,
         })),
       },
       payment: {
@@ -541,16 +549,29 @@ export class OrderService {
       throw new AppError("Item INTEIRA exige productId e size.", 422);
     }
 
-    const priceBySize = await this.productRepository.findSizePrice(
-      item.productId,
-      item.size,
-    );
+    const [priceBySize, crustPriceBySize] = await Promise.all([
+      this.productRepository.findSizePrice(item.productId, item.size, {
+        isCrust: false,
+      }),
+      item.crustProductId
+        ? this.productRepository.findSizePrice(item.crustProductId, item.size, {
+            isCrust: true,
+          })
+        : Promise.resolve(null),
+    ]);
 
     if (!priceBySize) {
       throw new AppError("Produto ou tamanho invalido para item INTEIRA.", 422);
     }
 
-    const unitPriceCents = toCents(priceBySize.price);
+    if (item.crustProductId && !crustPriceBySize) {
+      throw new AppError("Borda recheada invalida para este tamanho.", 422);
+    }
+
+    const crustUnitPriceCents = crustPriceBySize
+      ? toCents(crustPriceBySize.price)
+      : 0;
+    const unitPriceCents = toCents(priceBySize.price) + crustUnitPriceCents;
     const totalPriceCents = unitPriceCents * quantity;
 
     return {
@@ -559,9 +580,11 @@ export class OrderService {
       size: item.size,
       unitPriceCents,
       totalPriceCents,
+      crustUnitPriceCents,
       productId: item.productId,
       firstHalfProductId: null,
       secondHalfProductId: null,
+      crustProductId: item.crustProductId ?? null,
     };
   }
 
@@ -575,10 +598,22 @@ export class OrderService {
       );
     }
 
-    const [firstHalfPrice, secondHalfPrice] = await Promise.all([
-      this.productRepository.findSizePrice(item.firstHalfProductId, item.size),
-      this.productRepository.findSizePrice(item.secondHalfProductId, item.size),
-    ]);
+    const [firstHalfPrice, secondHalfPrice, crustPriceBySize] =
+      await Promise.all([
+        this.productRepository.findSizePrice(item.firstHalfProductId, item.size, {
+          isCrust: false,
+        }),
+        this.productRepository.findSizePrice(
+          item.secondHalfProductId,
+          item.size,
+          { isCrust: false },
+        ),
+        item.crustProductId
+          ? this.productRepository.findSizePrice(item.crustProductId, item.size, {
+              isCrust: true,
+            })
+          : Promise.resolve(null),
+      ]);
 
     if (!firstHalfPrice || !secondHalfPrice) {
       throw new AppError(
@@ -587,10 +622,18 @@ export class OrderService {
       );
     }
 
+    if (item.crustProductId && !crustPriceBySize) {
+      throw new AppError("Borda recheada invalida para este tamanho.", 422);
+    }
+
     const firstHalfCents = toCents(firstHalfPrice.price);
     const secondHalfCents = toCents(secondHalfPrice.price);
+    const crustUnitPriceCents = crustPriceBySize
+      ? toCents(crustPriceBySize.price)
+      : 0;
 
-    const unitPriceCents = Math.max(firstHalfCents, secondHalfCents);
+    const unitPriceCents =
+      Math.max(firstHalfCents, secondHalfCents) + crustUnitPriceCents;
     const totalPriceCents = unitPriceCents * quantity;
 
     return {
@@ -599,9 +642,11 @@ export class OrderService {
       size: item.size,
       unitPriceCents,
       totalPriceCents,
+      crustUnitPriceCents,
       productId: null,
       firstHalfProductId: item.firstHalfProductId,
       secondHalfProductId: item.secondHalfProductId,
+      crustProductId: item.crustProductId ?? null,
     };
   }
 }

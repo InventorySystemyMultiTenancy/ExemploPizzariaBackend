@@ -64,6 +64,7 @@ model Product {
   description String?
   imageUrl    String?
   category    String?       @default("Geral")
+  isCrust     Boolean       @default(false)
   isActive    Boolean       @default(true)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -73,6 +74,7 @@ model Product {
   orderItemsWhole      OrderItem[] @relation("OrderItemWholeProduct")
   orderItemsFirstHalf  OrderItem[] @relation("OrderItemFirstHalfProduct")
   orderItemsSecondHalf OrderItem[] @relation("OrderItemSecondHalfProduct")
+  orderItemsCrust      OrderItem[] @relation("OrderItemCrustProduct")
 }
 
 model ProductSize {
@@ -121,15 +123,18 @@ model OrderItem {
   size                ProductSizeEnum
   unitPrice           Decimal         @db.Decimal(10, 2)
   totalPrice          Decimal         @db.Decimal(10, 2)
+  crustUnitPrice      Decimal?        @db.Decimal(10, 2)
 
   productId           String?
   firstHalfProductId  String?
   secondHalfProductId String?
+  crustProductId      String?
 
   order               Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product             Product?        @relation("OrderItemWholeProduct", fields: [productId], references: [id], onDelete: Restrict)
   firstHalfProduct    Product?        @relation("OrderItemFirstHalfProduct", fields: [firstHalfProductId], references: [id], onDelete: Restrict)
   secondHalfProduct   Product?        @relation("OrderItemSecondHalfProduct", fields: [secondHalfProductId], references: [id], onDelete: Restrict)
+  crustProduct        Product?        @relation("OrderItemCrustProduct", fields: [crustProductId], references: [id], onDelete: Restrict)
 }
 
 model Payment {

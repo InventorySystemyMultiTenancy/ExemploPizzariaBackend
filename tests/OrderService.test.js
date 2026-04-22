@@ -44,6 +44,41 @@ describe("OrderService", () => {
     expect(Number(result.total)).toBe(119.8);
   });
 
+  it("deve somar a borda recheada ao valor da pizza", async () => {
+    const orderRepository = {
+      createOrder: vi.fn(async (data) => data),
+    };
+
+    const productRepository = {
+      findSizePrice: vi
+        .fn()
+        .mockResolvedValueOnce({ price: 52.9 })
+        .mockResolvedValueOnce({ price: 8 }),
+    };
+
+    const service = new OrderService(orderRepository, productRepository, {});
+
+    const result = await service.createOrder({
+      userId: "user-1",
+      deliveryAddress: "Rua das Palmeiras, 123",
+      items: [
+        {
+          type: "INTEIRA",
+          productId: "produto-a",
+          crustProductId: "borda-a",
+          size: "GRANDE",
+          quantity: 1,
+        },
+      ],
+      paymentMethod: "pix",
+    });
+
+    expect(productRepository.findSizePrice).toHaveBeenCalledTimes(2);
+    expect(Number(result.items.create[0].crustUnitPrice)).toBe(8);
+    expect(Number(result.items.create[0].unitPrice)).toBe(60.9);
+    expect(Number(result.total)).toBe(60.9);
+  });
+
   it("deve permitir transicao valida de status", async () => {
     const orderRepository = {
       findById: vi.fn(async () => ({ id: "order-1", status: "RECEBIDO" })),
