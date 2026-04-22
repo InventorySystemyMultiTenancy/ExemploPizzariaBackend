@@ -62,17 +62,27 @@ export const enforceOrderOwnership = async (req, _res, next) => {
       return next();
     }
 
-    if (req.user.role !== "CLIENTE") {
-      throw new AppError("Perfil sem permissao para acessar pedido.", 403);
-    }
-
     const order = await orderRepository.findByIdWithUser(orderId);
 
     if (!order) {
       throw new AppError("Pedido nao encontrado.", 404);
     }
 
-    if (order.user.id !== req.user.id) {
+    if (req.user.role === "MESA") {
+      if (order.mesaId !== req.user.id) {
+        throw new AppError(
+          "Voce nao tem permissao para acessar este pedido.",
+          403,
+        );
+      }
+      return next();
+    }
+
+    if (req.user.role !== "CLIENTE") {
+      throw new AppError("Perfil sem permissao para acessar pedido.", 403);
+    }
+
+    if (!order.user || order.user.id !== req.user.id) {
       throw new AppError(
         "Voce nao tem permissao para acessar este pedido.",
         403,

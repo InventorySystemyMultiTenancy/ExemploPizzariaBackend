@@ -13,6 +13,7 @@ enum Role {
   COZINHA
   MOTOBOY
   CLIENTE
+  MESA
 }
 
 enum ProductSizeEnum {
@@ -93,11 +94,12 @@ model ProductSize {
 
 model Order {
   id             String       @id @default(cuid())
-  userId         String
+  userId         String?
+  mesaId         String?
   status         OrderStatus  @default(RECEBIDO)
   total          Decimal      @db.Decimal(10, 2)
   paymentStatus  PaymentStatus @default(PENDENTE)
-  deliveryAddress String
+  deliveryAddress String?
   deliveryFee    Decimal?     @db.Decimal(10, 2)
   deliveryLat    Float?
   deliveryLon    Float?
@@ -110,7 +112,8 @@ model Order {
   updatedAt      DateTime     @updatedAt
   deliveredAt    DateTime?
 
-  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  mesa           Mesa?        @relation(fields: [mesaId], references: [id], onDelete: Restrict)
   items          OrderItem[]
   payment        Payment?
 }
@@ -149,4 +152,17 @@ model Payment {
   updatedAt   DateTime      @updatedAt
 
   order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Mesa {
+  id          String   @id @default(cuid())
+  name        String
+  number      Int      @unique
+  terminalId  String?
+  accessToken String   @unique @default(cuid())
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      Order[]
 }

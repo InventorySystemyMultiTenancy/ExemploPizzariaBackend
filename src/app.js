@@ -4,6 +4,7 @@ import { AuthController } from "./controllers/AuthController.js";
 import { OrderController } from "./controllers/OrderController.js";
 import { PaymentController } from "./controllers/PaymentController.js";
 import { ProductController } from "./controllers/ProductController.js";
+import { MesaController } from "./controllers/MesaController.js";
 import {
   authenticateToken,
   authorizeRoles,
@@ -19,6 +20,7 @@ const authController = new AuthController();
 const orderController = new OrderController();
 const paymentController = new PaymentController();
 const productController = new ProductController();
+const mesaController = new MesaController();
 
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
@@ -261,6 +263,74 @@ app.get("/api/payments/webhook", (_req, res) => {
 
 app.post("/api/payments/preference", authenticateToken, (req, res, next) =>
   paymentController.createPreference(req, res, next),
+);
+
+// Mesa: acesso publico por token (QR code)
+app.get("/api/mesas/acesso/:token", (req, res, next) =>
+  mesaController.access(req, res, next),
+);
+
+// Mesa: CRUD (admin)
+app.get(
+  "/api/mesas",
+  authenticateToken,
+  authorizeRoles("ADMIN"),
+  (req, res, next) => mesaController.list(req, res, next),
+);
+app.post(
+  "/api/mesas",
+  authenticateToken,
+  authorizeRoles("ADMIN"),
+  (req, res, next) => mesaController.create(req, res, next),
+);
+app.put(
+  "/api/mesas/:mesaId",
+  authenticateToken,
+  authorizeRoles("ADMIN"),
+  (req, res, next) => mesaController.update(req, res, next),
+);
+app.delete(
+  "/api/mesas/:mesaId",
+  authenticateToken,
+  authorizeRoles("ADMIN"),
+  (req, res, next) => mesaController.delete(req, res, next),
+);
+app.post(
+  "/api/mesas/:mesaId/regenerar-token",
+  authenticateToken,
+  authorizeRoles("ADMIN"),
+  (req, res, next) => mesaController.regenerateToken(req, res, next),
+);
+
+// Mesa: pedidos da sessao (role MESA)
+app.get(
+  "/api/mesa/orders",
+  authenticateToken,
+  authorizeRoles("MESA"),
+  (req, res, next) => mesaController.myOrders(req, res, next),
+);
+app.post(
+  "/api/mesa/orders",
+  authenticateToken,
+  authorizeRoles("MESA"),
+  (req, res, next) => orderController.create(req, res, next),
+);
+
+// Mesa: pagamento PIX (QR code no tablet)
+app.post(
+  "/api/mesa/payments/pix",
+  authenticateToken,
+  authorizeRoles("MESA", "ADMIN", "FUNCIONARIO"),
+  (req, res, next) => paymentController.createMesaPixPayment(req, res, next),
+);
+
+// Mesa: pagamento na maquininha (MP Point)
+app.post(
+  "/api/mesa/payments/terminal",
+  authenticateToken,
+  authorizeRoles("MESA", "ADMIN", "FUNCIONARIO"),
+  (req, res, next) =>
+    paymentController.createMesaTerminalPayment(req, res, next),
 );
 
 app.use(errorMiddleware);

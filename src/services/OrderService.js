@@ -46,6 +46,7 @@ export class OrderService {
 
   async createOrder({
     userId,
+    mesaId,
     deliveryAddress,
     notes,
     items,
@@ -55,6 +56,13 @@ export class OrderService {
     deliveryLon,
     isPickup,
   }) {
+    if (!userId && !mesaId) {
+      throw new AppError(
+        "Pedido deve ser vinculado a um usuario ou mesa.",
+        422,
+      );
+    }
+
     if (!items?.length) {
       throw new AppError("Pedido deve conter ao menos 1 item.", 422);
     }
@@ -83,8 +91,9 @@ export class OrderService {
     );
 
     const order = await this.orderRepository.createOrder({
-      userId,
-      deliveryAddress,
+      ...(userId ? { userId } : {}),
+      ...(mesaId ? { mesaId } : {}),
+      deliveryAddress: deliveryAddress ?? null,
       notes,
       total: new Prisma.Decimal(fromCents(totalCents)),
       paymentStatus: "PENDENTE",
@@ -133,6 +142,7 @@ export class OrderService {
     emitOrderCreated({
       orderId: order.id,
       userId: order.userId,
+      mesaId: order.mesaId,
       status: order.status,
       total: Number(order.total),
     });
@@ -600,18 +610,26 @@ export class OrderService {
 
     const [firstHalfPrice, secondHalfPrice, crustPriceBySize] =
       await Promise.all([
-        this.productRepository.findSizePrice(item.firstHalfProductId, item.size, {
-          isCrust: false,
-        }),
+        this.productRepository.findSizePrice(
+          item.firstHalfProductId,
+          item.size,
+          {
+            isCrust: false,
+          },
+        ),
         this.productRepository.findSizePrice(
           item.secondHalfProductId,
           item.size,
           { isCrust: false },
         ),
         item.crustProductId
-          ? this.productRepository.findSizePrice(item.crustProductId, item.size, {
-              isCrust: true,
-            })
+          ? this.productRepository.findSizePrice(
+              item.crustProductId,
+              item.size,
+              {
+                isCrust: true,
+              },
+            )
           : Promise.resolve(null),
       ]);
 

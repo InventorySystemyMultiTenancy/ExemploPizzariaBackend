@@ -36,7 +36,8 @@ export class OrderRepository {
     return prisma.$queryRawUnsafe(
       `SELECT u.id, u.name FROM "User" u
        WHERE u.id IN (
-         SELECT DISTINCT "userId" FROM "Order" WHERE id IN (${ph})
+         SELECT DISTINCT "userId" FROM "Order"
+         WHERE id IN (${ph}) AND "userId" IS NOT NULL
        )`,
       ...orderIds,
     );
@@ -93,7 +94,7 @@ export class OrderRepository {
 
   async findByIdWithUser(orderId) {
     const rows = await prisma.$queryRaw`
-      SELECT o.id, o."userId", o.status::text AS status,
+      SELECT o.id, o."userId", o."mesaId", o.status::text AS status,
              o."paymentStatus"::text AS "paymentStatus",
              u.id AS "uId", u.role::text AS "uRole"
       FROM "Order" o
@@ -105,9 +106,10 @@ export class OrderRepository {
     return {
       id: r.id,
       userId: r.userId,
+      mesaId: r.mesaId,
       status: r.status,
       paymentStatus: r.paymentStatus,
-      user: { id: r.uId, role: r.uRole },
+      user: r.uId ? { id: r.uId, role: r.uRole } : null,
     };
   }
 

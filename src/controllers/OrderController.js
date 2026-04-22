@@ -13,8 +13,9 @@ export class OrderController {
   async create(req, res, next) {
     try {
       const payload = createOrderSchema.parse(req.body);
+      const isMesa = req.user.role === "MESA";
       const order = await orderService.createOrder({
-        userId: req.user.id,
+        ...(isMesa ? { mesaId: req.user.id } : { userId: req.user.id }),
         ...payload,
       });
 
