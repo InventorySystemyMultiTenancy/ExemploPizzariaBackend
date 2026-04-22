@@ -177,10 +177,26 @@ export class PaymentController {
       const mpToken = process.env.MP_ACCESS_TOKEN;
       if (!mpToken) throw new AppError("Mercado Pago nao configurado.", 500);
 
+      const paymentBody = {
+        amount: Math.round(Number(order.total) * 100),
+        description: `Pedido Mesa ${mesa.number} #${order.id.slice(-6).toUpperCase()}`,
+        additional_info: {
+          external_reference: order.id,
+          print_on_terminal: true,
+        },
+      };
+
+      console.log("[createMesaTerminalPayment] terminalId:", mesa.terminalId);
+      console.log(
+        "[createMesaTerminalPayment] body:",
+        JSON.stringify(paymentBody),
+      );
+      console.log(
+        "[createMesaTerminalPayment] token prefix:",
+        mpToken.slice(0, 20) + "...",
+      );
+
       // MP Point Integration API
-      const backendUrl =
-        process.env.BACKEND_URL ||
-        "https://exemplopizzariabackend.onrender.com";
       const mpResponse = await fetch(
         `https://api.mercadopago.com/v2/point/integration-api/devices/${mesa.terminalId}/payment-intents`,
         {
@@ -189,14 +205,7 @@ export class PaymentController {
             Authorization: `Bearer ${mpToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            amount: Math.round(Number(order.total) * 100),
-            description: `Pedido Mesa ${mesa.number} #${order.id.slice(-6).toUpperCase()}`,
-            additional_info: {
-              external_reference: order.id,
-              print_on_terminal: true,
-            },
-          }),
+          body: JSON.stringify(paymentBody),
         },
       );
 
