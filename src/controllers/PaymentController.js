@@ -199,7 +199,6 @@ export class PaymentController {
       };
 
       console.log("[createMesaTerminalPayment] terminalId:", mesa.terminalId);
-      console.log("[createMesaTerminalPayment] posId:", posIdValue);
       console.log(
         "[createMesaTerminalPayment] body:",
         JSON.stringify(paymentBody),
@@ -209,11 +208,12 @@ export class PaymentController {
         Authorization: `Bearer ${mpToken}`,
         "Content-Type": "application/json",
       };
-      if (posIdValue) mpHeaders["X-Pos-Id"] = posIdValue;
+      if (deviceInfo?.external_pos_id)
+        mpHeaders["X-Pos-Id"] = deviceInfo.external_pos_id;
 
-      // MP Point Integration API
+      // MP Point Integration API (sem /v2/)
       const mpResponse = await fetch(
-        `https://api.mercadopago.com/v2/point/integration-api/devices/${mesa.terminalId}/payment-intents`,
+        `https://api.mercadopago.com/point/integration-api/devices/${mesa.terminalId}/payment-intents`,
         {
           method: "POST",
           headers: mpHeaders,
