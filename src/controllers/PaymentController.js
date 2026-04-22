@@ -177,6 +177,18 @@ export class PaymentController {
       const mpToken = process.env.MP_ACCESS_TOKEN;
       if (!mpToken) throw new AppError("Mercado Pago nao configurado.", 500);
 
+      // Busca o pos_id do device para incluir no header X-Pos-Id (obrigatório no modo PDV)
+      const devicesResp = await fetch(
+        "https://api.mercadopago.com/point/integration-api/devices",
+        { headers: { Authorization: `Bearer ${mpToken}` } },
+      );
+      const devicesData = await devicesResp.json();
+      const deviceInfo = (devicesData.devices ?? []).find(
+        (d) => d.id === mesa.terminalId,
+      );
+      const posIdValue =
+        deviceInfo?.external_pos_id || String(deviceInfo?.pos_id ?? "");
+
       const paymentBody = {
         amount: Math.round(Number(order.total) * 100),
         description: `Pedido Mesa ${mesa.number} #${order.id.slice(-6).toUpperCase()}`,
@@ -187,24 +199,24 @@ export class PaymentController {
       };
 
       console.log("[createMesaTerminalPayment] terminalId:", mesa.terminalId);
+      console.log("[createMesaTerminalPayment] posId:", posIdValue);
       console.log(
         "[createMesaTerminalPayment] body:",
         JSON.stringify(paymentBody),
       );
-      console.log(
-        "[createMesaTerminalPayment] token prefix:",
-        mpToken.slice(0, 20) + "...",
-      );
+
+      const mpHeaders = {
+        Authorization: `Bearer ${mpToken}`,
+        "Content-Type": "application/json",
+      };
+      if (posIdValue) mpHeaders["X-Pos-Id"] = posIdValue;
 
       // MP Point Integration API
       const mpResponse = await fetch(
         `https://api.mercadopago.com/v2/point/integration-api/devices/${mesa.terminalId}/payment-intents`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${mpToken}`,
-            "Content-Type": "application/json",
-          },
+          headers: mpHeaders,
           body: JSON.stringify(paymentBody),
         },
       );
