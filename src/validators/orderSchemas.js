@@ -50,12 +50,19 @@ export const updateOrderStatusSchema = z.object({
 export const paymentWebhookSchema = z
   .object({
     id: z.union([z.string(), z.number()]).optional(),
+    type: z.string().optional(), // e.g. "payment", "point_integration_wh"
+    topic: z.string().optional(), // formato legado
+    resource: z.union([z.string(), z.number()]).optional(), // formato legado
+    action: z.string().optional(),
     status: z.string().optional(),
     external_reference: z.string().optional(),
     metadata: z.record(z.any()).optional(),
+    additional_info: z.record(z.any()).optional(),
     data: z
       .object({
         id: z.union([z.string(), z.number()]).optional(),
+        payment_id: z.union([z.string(), z.number()]).optional(),
+        state: z.string().optional(),
         status: z.string().optional(),
         metadata: z.record(z.any()).optional(),
       })

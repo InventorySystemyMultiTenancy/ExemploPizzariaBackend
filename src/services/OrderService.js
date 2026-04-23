@@ -315,22 +315,61 @@ export class OrderService {
           );
         } catch (e) {
           console.error("[webhook] Falha ao buscar payment:", e.message);
-          // Derivar status do state do intent
+          // Derivar status do state do intent apenas como fallback seguro
           const state = String(payload?.data?.state ?? "").toUpperCase();
-          if (state === "FINISHED") providerStatus = "approved";
-          else if (state === "CANCELED" || state === "CANCELLED")
+          if (state === "CANCELED" || state === "CANCELLED")
             providerStatus = "cancelled";
+          // Não assume approved para FINISHED — o status real virá do pagamento real
+          else providerStatus = "pending";
           externalId = String(paymentId ?? intentId ?? "");
         }
       } else {
-        // Sem payment_id ainda (intent ainda processando) — ignorar
+        // Sem payment_id ainda — verifica pelo external_reference se FINISHED
         const state = String(payload?.data?.state ?? "").toUpperCase();
-        if (state === "FINISHED") providerStatus = "approved";
-        else if (state === "CANCELED" || state === "CANCELLED")
+        if (state === "CANCELED" || state === "CANCELLED") {
           providerStatus = "cancelled";
-        else providerStatus = "pending";
+        } else if (state === "FINISHED" && orderId) {
+          // Busca o pagamento real pelo external_reference para confirmar status
+          try {
+            const searchUrl = `https://api.mercadopago.com/v1/payments/search?external_reference=${orderId}`;
+            const searchResp = await fetch(searchUrl, {
+              headers: { Authorization: `Bearer ${mpToken}` },
+            });
+            if (searchResp.ok) {
+              const searchData = await searchResp.json();
+              const latestPayment = searchData?.results?.[0];
+              if (latestPayment) {
+                providerStatus = (
+                  latestPayment.status ?? "pending"
+                ).toLowerCase();
+                externalId = String(latestPayment.id ?? "");
+                console.log(
+                  "[webhook] FINISHED buscado via search, status real:",
+                  providerStatus,
+                );
+              } else {
+                providerStatus = "pending";
+              }
+            } else {
+              providerStatus = "pending";
+            }
+          } catch (se) {
+            console.error(
+              "[webhook] Falha ao buscar pagamento FINISHED:",
+              se.message,
+            );
+            providerStatus = "pending";
+          }
+        } else {
+          providerStatus = "pending";
+        }
         externalId = String(intentId ?? "");
-        console.log("[webhook] Point sem payment_id, state:", state);
+        console.log(
+          "[webhook] Point sem payment_id, state:",
+          state,
+          "-> providerStatus:",
+          providerStatus,
+        );
       }
     } else {
       // Webhook normal de pagamento (PIX / checkout)

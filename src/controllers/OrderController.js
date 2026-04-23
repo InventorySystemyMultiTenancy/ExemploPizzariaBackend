@@ -152,14 +152,26 @@ export class OrderController {
   async paymentWebhook(req, res, next) {
     try {
       const payload = paymentWebhookSchema.parse(req.body);
-      const result = await orderService.handlePaymentWebhook(payload);
 
-      return res.status(200).json({
-        message: "Webhook processado com sucesso.",
-        data: result,
+      // Responde 200 imediatamente ao Mercado Pago (obrigatório — evita retries em loop)
+      res.status(200).json({ message: "OK" });
+
+      // Processa em background sem bloquear a resposta
+      orderService.handlePaymentWebhook(payload).catch((err) => {
+        console.error(
+          "[webhook] Erro ao processar payload em background:",
+          err.message,
+        );
       });
     } catch (error) {
-      return this.#handleError(error, next);
+      // Mesmo em caso de parse error, responde 200 para evitar retry do MP
+      res.status(200).json({ message: "OK" });
+      console.error(
+        "[webhook] Parse error:",
+        error.message,
+        "body:",
+        JSON.stringify(req.body),
+      );
     }
   }
 
