@@ -313,28 +313,72 @@ export class OrderService {
             JSON.stringify(paymentData.additional_info),
           );
 
+          console.log(
+            "[webhook] paymentData.order:",
+            JSON.stringify(paymentData.order),
+          );
+
           if (!orderId) {
             orderId = await this.#findOrderIdByTerminalReferences(paymentData);
           }
 
-          // Se orderId ainda é nulo (referência interna do MP), tenta buscar o intent pelo payment_id
+          // Fallback: busca a Order da nova API /v1/orders usando o order.id do pagamento
+          // Isso resolve o caso em que a maquininha (Point) paga via /v1/orders mas o
+          // webhook chega no formato legado com external_reference=null
           if (!orderId) {
+            const mpOrderId =
+              paymentData?.order?.id != null
+                ? String(paymentData.order.id)
+                : null;
             console.log(
-              "[webhook] ext_ref é interna do MP, buscando intent por payment_id:",
-              rawPaymentId,
+              "[webhook] Tentando fallback via /v1/orders com mpOrderId:",
+              mpOrderId,
             );
-            try {
-              const searchUrl = `https://api.mercadopago.com/point/integration-api/payment-intents/events?payment_intent_id=${rawPaymentId}`;
-              // Tenta buscar via search do v1/payments usando o payment_id como referência
-              const intentSearchUrl = `https://api.mercadopago.com/v1/payments/search?id=${rawPaymentId}`;
-              // Estratégia: busca o intent cujo payment.id == rawPaymentId
-              // Não há endpoint direto; usa search por external_reference vazia não funciona.
-              // Log para diagnóstico e ignora silenciosamente.
-              console.warn(
-                "[webhook] Sem orderId após busca legada — payment externo ao sistema (ex: INSTORE). Ignorando.",
-              );
-            } catch (se) {
-              // ignorar
+            if (mpOrderId && mpToken) {
+              try {
+                // 1. Tenta buscar diretamente na nova API /v1/orders/{id}
+                const orderResp = await fetch(
+                  `https://api.mercadopago.com/v1/orders/${mpOrderId}`,
+                  { headers: { Authorization: `Bearer ${mpToken}` } },
+                );
+                if (orderResp.ok) {
+                  const mpOrder = await orderResp.json();
+                  const extRef = mpOrder.external_reference;
+                  console.log(
+                    "[webhook] /v1/orders extRef:",
+                    extRef,
+                    "status:",
+                    mpOrder.status,
+                  );
+                  if (extRef && !isMercadoPagoInternalReference(extRef)) {
+                    orderId = extRef;
+                    console.log(
+                      "[webhook] orderId recuperado via /v1/orders:",
+                      orderId,
+                    );
+                  }
+                }
+
+                // 2. Se ainda não encontrou, tenta por terminalIntentId no banco
+                if (!orderId) {
+                  const orderByIntent =
+                    await this.orderRepository.findByTerminalIntentId?.(
+                      mpOrderId,
+                    );
+                  if (orderByIntent?.id) {
+                    orderId = orderByIntent.id;
+                    console.log(
+                      "[webhook] orderId recuperado via terminalIntentId:",
+                      orderId,
+                    );
+                  }
+                }
+              } catch (fe) {
+                console.warn(
+                  "[webhook] Falha no fallback /v1/orders:",
+                  fe.message,
+                );
+              }
             }
           }
         } catch (e) {
