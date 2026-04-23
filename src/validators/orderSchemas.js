@@ -64,6 +64,8 @@ export const paymentWebhookSchema = z
         payment_id: z.union([z.string(), z.number()]).optional(),
         state: z.string().optional(),
         status: z.string().optional(),
+        external_reference: z.string().optional(), // nova API /v1/orders
+        status_detail: z.string().optional(),
         metadata: z.record(z.any()).optional(),
       })
       .passthrough()

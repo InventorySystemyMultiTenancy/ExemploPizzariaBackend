@@ -134,6 +134,23 @@ export class OrderRepository {
     });
   }
 
+  async saveTerminalIntentId(orderId, intentId) {
+    await prisma.$executeRaw`
+      UPDATE "Order" SET "terminalIntentId" = ${intentId}, "updatedAt" = NOW()
+      WHERE "id" = ${orderId}
+    `;
+  }
+
+  async findByTerminalIntentId(intentId) {
+    const rows = await prisma.$queryRaw`
+      SELECT id, "paymentStatus"::text AS "paymentStatus", "mesaId", "userId", total
+      FROM "Order"
+      WHERE "terminalIntentId" = ${intentId}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
   async findByUserId(userId) {
     console.log("[findByUserId] start userId=", userId);
     let orders;

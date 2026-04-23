@@ -215,15 +215,20 @@ export class OrderService {
   }
 
   async handlePaymentWebhook(payload) {
-    // MP sends { type: "payment", data: { id: "<payment_id>" } } — formato novo
-    // MP Point envia { type: "point_integration_wh", data: { id: "<intent_id>", payment_id: 123 } }
-    // MP também pode enviar formato ANTIGO: { resource: "123456", topic: "payment" }
+    // Formatos suportados:
+    // 1. Nova API /v1/orders (MP Point):  { type: "order", action: "order.processed", data: { id: "ORD...", external_reference: "...", status: "processed" } }
+    // 2. MP Point legado:                 { type: "point_integration_wh", data: { id: "<intent_id>", payment_id: 123 } }
+    // 3. Checkout/PIX (novo):             { type: "payment", data: { id: "<payment_id>" } }
+    // 4. Formato antigo (legado):         { resource: "123456", topic: "payment" }
+
+    const isOrderWebhook = payload?.type === "order"; // nova API /v1/orders
     const isPointWebhook = payload?.type === "point_integration_wh";
     const isLegacyWebhook =
       !!payload?.topic && !!payload?.resource && !payload?.type;
 
     let providerStatus = "pending";
     let orderId =
+      payload?.data?.external_reference ?? // nova API /v1/orders
       payload?.external_reference ??
       payload?.additional_info?.external_reference ??
       payload?.data?.metadata?.order_id ??
@@ -232,12 +237,43 @@ export class OrderService {
 
     const mpToken = process.env.MP_ACCESS_TOKEN;
 
-    if (isLegacyWebhook) {
-      // Formato antigo: { resource: "156011841118", topic: "payment" }
-      // resource pode ser um número ou URL como /v1/payments/123456
-      const rawResource = String(payload.resource ?? "");
-      const rawPaymentId = rawResource.replace(/\D/g, "") || rawResource;
-      externalId = rawPaymentId;
+    if (isOrderWebhook) {
+      // Nova API /v1/orders — o payload já tem tudo que precisamos
+      const action = payload?.action ?? "";
+      const orderData = payload?.data ?? {};
+      externalId = String(orderData.id ?? "");
+      orderId = orderId || orderData.external_reference;
+
+      console.log(
+        "[webhook] Nova API /v1/orders. action:",
+        action,
+        "| orderId:",
+        orderId,
+        "| status:",
+        orderData.status,
+      );
+
+      // Mapeia status da order para providerStatus
+      if (action === "order.processed" || orderData.status === "processed") {
+        providerStatus = "approved";
+      } else if (
+        action === "order.canceled" ||
+        orderData.status === "canceled" ||
+        orderData.status === "expired"
+      ) {
+        providerStatus = "cancelled";
+      } else if (action === "order.failed" || orderData.status === "failed") {
+        providerStatus = "rejected";
+      } else if (
+        action === "order.refunded" ||
+        orderData.status === "refunded"
+      ) {
+        providerStatus = "refunded";
+      } else {
+        // order.action_required, at_terminal, created — ainda processando
+        providerStatus = "pending";
+      }
+    } else if (isLegacyWebhook) {
       console.log(
         "[webhook] Formato antigo. topic:",
         payload.topic,

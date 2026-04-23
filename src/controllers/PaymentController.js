@@ -139,7 +139,7 @@ export class PaymentController {
     }
   }
 
-  // Envia cobrança direto para a maquininha (MP Point)
+  // Envia cobrança direto para a maquininha (MP Point — API unificada /v1/orders)
   async createMesaTerminalPayment(req, res, next) {
     try {
       const { orderId } = req.body;
@@ -177,50 +177,44 @@ export class PaymentController {
       const mpToken = process.env.MP_ACCESS_TOKEN;
       if (!mpToken) throw new AppError("Mercado Pago nao configurado.", 500);
 
-      // Busca o pos_id do device para incluir no header X-Pos-Id (obrigatório no modo PDV)
-      const devicesResp = await fetch(
-        "https://api.mercadopago.com/point/integration-api/devices",
-        { headers: { Authorization: `Bearer ${mpToken}` } },
-      );
-      const devicesData = await devicesResp.json();
-      const deviceInfo = (devicesData.devices ?? []).find(
-        (d) => d.id === mesa.terminalId,
-      );
-      const posIdValue =
-        deviceInfo?.external_pos_id || String(deviceInfo?.pos_id ?? "");
-
-      const paymentBody = {
-        amount: Math.round(Number(order.total) * 100),
-        description: `Pedido Mesa ${mesa.number} #${order.id.slice(-6).toUpperCase()}`,
+      // Nova API unificada do MP Point: POST /v1/orders
+      // external_reference fica na raiz e é propagado ao webhook automaticamente.
+      const orderBody = {
+        type: "point",
         external_reference: order.id,
-        additional_info: {
-          print_on_terminal: true,
+        description: `Pedido Mesa ${mesa.number} #${order.id.slice(-6).toUpperCase()}`,
+        transactions: {
+          payments: [
+            {
+              amount: Number(order.total).toFixed(2),
+            },
+          ],
         },
-        notification_url: `${process.env.BACKEND_URL || "https://exemplopizzariabackend.onrender.com"}/api/payments/webhook`,
+        config: {
+          point: {
+            terminal_id: mesa.terminalId,
+            print_on_terminal: "no_ticket",
+          },
+        },
       };
 
       console.log("[createMesaTerminalPayment] terminalId:", mesa.terminalId);
       console.log(
         "[createMesaTerminalPayment] body:",
-        JSON.stringify(paymentBody),
+        JSON.stringify(orderBody),
       );
 
-      // Não usa X-Pos-Id — o device_id na URL já direciona para a maquininha correta.
-      // Usar X-Pos-Id causaria broadcast para todos os devices do mesmo POS.
-      const mpHeaders = {
-        Authorization: `Bearer ${mpToken}`,
-        "Content-Type": "application/json",
-      };
+      const idempotencyKey = `${order.id}-${Date.now()}`;
 
-      // MP Point Integration API (sem /v2/)
-      const mpResponse = await fetch(
-        `https://api.mercadopago.com/point/integration-api/devices/${mesa.terminalId}/payment-intents`,
-        {
-          method: "POST",
-          headers: mpHeaders,
-          body: JSON.stringify(paymentBody),
+      const mpResponse = await fetch("https://api.mercadopago.com/v1/orders", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${mpToken}`,
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idempotencyKey,
         },
-      );
+        body: JSON.stringify(orderBody),
+      });
 
       if (!mpResponse.ok) {
         const errBody = await mpResponse.json().catch(() => ({}));
@@ -234,13 +228,37 @@ export class PaymentController {
         );
       }
 
-      const intent = await mpResponse.json();
+      const mpOrder = await mpResponse.json();
+      console.log(
+        "[createMesaTerminalPayment] MP order criada:",
+        mpOrder.id,
+        "| status:",
+        mpOrder.status,
+      );
+
+      // Salva o orderId do MP para rastrear no webhook
+      if (mpOrder.id) {
+        try {
+          await orderRepository.saveTerminalIntentId(order.id, mpOrder.id);
+          console.log(
+            "[createMesaTerminalPayment] MP orderId salvo:",
+            mpOrder.id,
+            "-> orderId:",
+            order.id,
+          );
+        } catch (e) {
+          console.warn(
+            "[createMesaTerminalPayment] Falha ao salvar MP orderId:",
+            e.message,
+          );
+        }
+      }
 
       return res.status(200).json({
         data: {
-          intentId: intent.id,
+          intentId: mpOrder.id,
           deviceId: mesa.terminalId,
-          status: intent.state,
+          status: mpOrder.status,
         },
       });
     } catch (error) {
