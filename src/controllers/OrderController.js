@@ -156,10 +156,16 @@ export class OrderController {
       "[webhook] headers type:",
       req.headers["x-signature"] ? "com x-signature" : "sem x-signature",
     );
+    console.log("[webhook] query:", JSON.stringify(req.query));
     console.log("[webhook] raw body:", JSON.stringify(req.body));
 
     try {
-      const payload = paymentWebhookSchema.parse(req.body);
+      // Mescla query params + body para suportar IPN (query string) e Webhook (body) simultaneamente.
+      // IPN legado: POST /webhook?id=123&topic=payment (body vazio)
+      // Webhook moderno: POST /webhook com JSON no body
+      // Body tem prioridade sobre query em caso de conflito.
+      const rawPayload = { ...req.query, ...req.body };
+      const payload = paymentWebhookSchema.parse(rawPayload);
 
       // Responde 200 imediatamente ao Mercado Pago (obrigatório — evita retries em loop)
       res.status(200).json({ message: "OK" });
