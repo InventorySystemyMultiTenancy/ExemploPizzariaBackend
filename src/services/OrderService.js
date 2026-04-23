@@ -314,8 +314,19 @@ export class OrderService {
             { headers: { Authorization: `Bearer ${mpToken}` } },
           );
           const intentData = await intentResp.json();
-          orderId = orderId || intentData?.additional_info?.external_reference;
-          console.log("[webhook] intent data:", JSON.stringify(intentData));
+          // external_reference está na raiz do intent (ou em additional_info para intents antigos)
+          orderId =
+            orderId ||
+            intentData?.external_reference ||
+            intentData?.additional_info?.external_reference;
+          console.log(
+            "[webhook] intent state:",
+            intentData?.state,
+            "| external_reference:",
+            intentData?.external_reference,
+            "| additional_info.ext_ref:",
+            intentData?.additional_info?.external_reference,
+          );
         } catch (e) {
           console.error("[webhook] Falha ao buscar intent:", e.message);
         }
@@ -444,6 +455,9 @@ export class OrderService {
     });
 
     await this.orderRepository.updatePaymentStatus(orderId, paymentStatus);
+    console.log(
+      `[webhook] ✅ Pedido ${orderId} atualizado para paymentStatus=${paymentStatus} (providerStatus=${providerStatus})`,
+    );
 
     emitPaymentUpdated({
       orderId,

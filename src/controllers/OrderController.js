@@ -150,6 +150,14 @@ export class OrderController {
   }
 
   async paymentWebhook(req, res, next) {
+    const ts = new Date().toISOString();
+    console.log(`\n[webhook] ========== RECEBIDO ${ts} ==========`);
+    console.log(
+      "[webhook] headers type:",
+      req.headers["x-signature"] ? "com x-signature" : "sem x-signature",
+    );
+    console.log("[webhook] raw body:", JSON.stringify(req.body));
+
     try {
       const payload = paymentWebhookSchema.parse(req.body);
 
@@ -161,6 +169,7 @@ export class OrderController {
         console.error(
           "[webhook] Erro ao processar payload em background:",
           err.message,
+          err.stack,
         );
       });
     } catch (error) {
