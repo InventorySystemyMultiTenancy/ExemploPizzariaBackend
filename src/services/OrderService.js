@@ -215,9 +215,12 @@ export class OrderService {
   }
 
   async handlePaymentWebhook(payload) {
-    // MP sends { type: "payment", data: { id: "<payment_id>" } } — no status inline.
-    // MP Point sends { type: "point_integration_wh", data: { id: "<intent_id>", payment_id: 123, state: "FINISHED" } }
+    // MP sends { type: "payment", data: { id: "<payment_id>" } } — formato novo
+    // MP Point envia { type: "point_integration_wh", data: { id: "<intent_id>", payment_id: 123 } }
+    // MP também pode enviar formato ANTIGO: { resource: "123456", topic: "payment" }
     const isPointWebhook = payload?.type === "point_integration_wh";
+    const isLegacyWebhook =
+      !!payload?.topic && !!payload?.resource && !payload?.type;
 
     let providerStatus = "pending";
     let orderId =
@@ -229,7 +232,38 @@ export class OrderService {
 
     const mpToken = process.env.MP_ACCESS_TOKEN;
 
-    if (isPointWebhook) {
+    if (isLegacyWebhook) {
+      // Formato antigo: { resource: "156011841118", topic: "payment" }
+      // resource pode ser um número ou URL como /v1/payments/123456
+      const rawResource = String(payload.resource ?? "");
+      const rawPaymentId = rawResource.replace(/\D/g, "") || rawResource;
+      externalId = rawPaymentId;
+      console.log(
+        "[webhook] Formato antigo. topic:",
+        payload.topic,
+        "paymentId:",
+        rawPaymentId,
+      );
+
+      if (rawPaymentId && mpToken) {
+        try {
+          const client = new MercadoPagoConfig({ accessToken: mpToken });
+          const paymentApi = new MPPayment(client);
+          const paymentData = await paymentApi.get({ id: rawPaymentId });
+          providerStatus = (paymentData.status ?? "pending").toLowerCase();
+          orderId = orderId || paymentData.external_reference;
+          externalId = String(paymentData.id ?? rawPaymentId);
+          console.log(
+            "[webhook] Legacy payment status:",
+            providerStatus,
+            "orderId:",
+            orderId,
+          );
+        } catch (e) {
+          console.error("[webhook] Falha ao buscar payment legado:", e.message);
+        }
+      }
+    } else if (isPointWebhook) {
       // Para pagamentos da maquininha:
       // 1. Buscar o intent para pegar external_reference e estado
       // 2. Se houver payment_id, buscar o pagamento para confirmar status
