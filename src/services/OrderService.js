@@ -32,6 +32,8 @@ const fromCents = (value) => (value / 100).toFixed(2);
 const startOfDay = (date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate());
 const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
+const isMercadoPagoInternalReference = (value) =>
+  !!value && /^INSTORE-/i.test(String(value));
 
 export class OrderService {
   constructor(
@@ -310,6 +312,10 @@ export class OrderService {
             "additional_info:",
             JSON.stringify(paymentData.additional_info),
           );
+
+          if (!orderId) {
+            orderId = await this.#findOrderIdByTerminalReferences(paymentData);
+          }
 
           // Se orderId ainda é nulo (referência interna do MP), tenta buscar o intent pelo payment_id
           if (!orderId) {
@@ -899,4 +905,46 @@ export class OrderService {
       crustProductId: item.crustProductId ?? null,
     };
   }
+
+  async #findOrderIdByTerminalReferences(paymentData) {
+    const rawCandidates = [
+      paymentData?.order?.id,
+      paymentData?.point_of_interaction?.transaction_data?.order_id,
+      paymentData?.point_of_interaction?.transaction_data?.external_resource_url,
+      paymentData?.metadata?.order_id,
+      paymentData?.metadata?.external_reference,
+      paymentData?.additional_info?.external_reference,
+    ].filter(Boolean);
+
+    const normalizedCandidates = [
+      ...new Set(
+        rawCandidates.flatMap((candidate) => {
+          const value = String(candidate).trim();
+          if (!value) return [];
+
+          const orderMatch = value.match(/\/v1\/orders\/([A-Z0-9]+)/i);
+          return [orderMatch?.[1] ?? value];
+        }),
+      ),
+    ];
+
+    for (const candidate of normalizedCandidates) {
+      if (!candidate || isMercadoPagoInternalReference(candidate)) continue;
+
+      const orderByIntent =
+        await this.orderRepository.findByTerminalIntentId?.(candidate);
+      if (orderByIntent?.id) {
+        console.log(
+          "[webhook] Pedido localizado por terminalIntentId:",
+          candidate,
+          "->",
+          orderByIntent.id,
+        );
+        return orderByIntent.id;
+      }
+    }
+
+    return null;
+  }
 }
+
