@@ -192,8 +192,8 @@ export class PaymentController {
       const paymentBody = {
         amount: Math.round(Number(order.total) * 100),
         description: `Pedido Mesa ${mesa.number} #${order.id.slice(-6).toUpperCase()}`,
-        external_reference: order.id,
         additional_info: {
+          external_reference: order.id,
           print_on_terminal: true,
         },
         notification_url: `${process.env.BACKEND_URL || "https://exemplopizzariabackend.onrender.com"}/api/payments/webhook`,

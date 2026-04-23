@@ -251,13 +251,21 @@ export class OrderService {
           const paymentApi = new MPPayment(client);
           const paymentData = await paymentApi.get({ id: rawPaymentId });
           providerStatus = (paymentData.status ?? "pending").toLowerCase();
-          orderId = orderId || paymentData.external_reference;
+          // MP Point coloca o external_reference dentro de additional_info
+          orderId =
+            orderId ||
+            paymentData.external_reference ||
+            paymentData.additional_info?.external_reference;
           externalId = String(paymentData.id ?? rawPaymentId);
           console.log(
             "[webhook] Legacy payment status:",
             providerStatus,
             "orderId:",
             orderId,
+            "ext_ref:",
+            paymentData.external_reference,
+            "additional_info:",
+            JSON.stringify(paymentData.additional_info),
           );
         } catch (e) {
           console.error("[webhook] Falha ao buscar payment legado:", e.message);
