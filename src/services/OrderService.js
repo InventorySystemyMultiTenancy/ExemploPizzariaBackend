@@ -274,6 +274,12 @@ export class OrderService {
         providerStatus = "pending";
       }
     } else if (isLegacyWebhook) {
+      // Formato antigo: { resource: "156011841118", topic: "payment" }
+      // resource pode ser um número ou URL como /v1/payments/123456
+      const rawResource = String(payload.resource ?? "");
+      const rawPaymentId = rawResource.replace(/\D/g, "") || rawResource;
+      externalId = rawPaymentId;
+
       console.log(
         "[webhook] Formato antigo. topic:",
         payload.topic,
