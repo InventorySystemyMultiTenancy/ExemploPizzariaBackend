@@ -525,6 +525,82 @@ export class OrderService {
     return this.orderRepository.updatePaymentStatus(orderId, paymentStatus);
   }
 
+  /**
+   * Confirmação explícita de pagamento do Checkout Pro.
+   * Chamado pelo CheckoutReturnPage quando o MP redireciona de volta com
+   * ?status=approved&payment_id=XXX&external_reference=ORDER_ID.
+   * Garante que o pedido seja marcado como APROVADO mesmo quando o webhook
+   * falha por ter external_reference nulo.
+   */
+  async confirmCheckoutPayment(orderId, paymentId, user) {
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) throw new AppError("Pedido não encontrado.", 404);
+
+    // Verifica propriedade: CLIENTE só confirma o próprio pedido
+    if (user.role === "CLIENTE" && order.userId !== user.id) {
+      throw new AppError("Acesso negado.", 403);
+    }
+
+    if (order.paymentStatus === "APROVADO") {
+      // Já está pago — retorna sem fazer nada
+      return { orderId, paymentStatus: "APROVADO", alreadyPaid: true };
+    }
+
+    const mpToken = process.env.MP_ACCESS_TOKEN;
+    if (!mpToken) throw new AppError("Mercado Pago não configurado.", 500);
+
+    const client = new MercadoPagoConfig({ accessToken: mpToken });
+    const paymentApi = new MPPayment(client);
+    const payment = await paymentApi.get({ id: String(paymentId) });
+
+    console.log(
+      `[confirmCheckout] paymentId=${paymentId} status=${payment.status} ext_ref=${payment.external_reference}`,
+    );
+
+    if (payment.status !== "approved" && payment.status !== "authorized") {
+      return {
+        orderId,
+        paymentStatus: PAYMENT_STATUS_MAP[payment.status] ?? "PENDENTE",
+        alreadyPaid: false,
+      };
+    }
+
+    // Verificação de segurança: se o MP retornou external_reference,
+    // ele deve bater com o orderId informado.
+    if (payment.external_reference && payment.external_reference !== orderId) {
+      throw new AppError("Referência do pagamento inválida.", 422);
+    }
+
+    // Se external_reference é nulo (bug do MP), valida pelo valor do pedido
+    if (!payment.external_reference) {
+      const mpAmountCents = toCents(payment.transaction_amount);
+      const orderAmountCents = toCents(order.total);
+      if (Math.abs(mpAmountCents - orderAmountCents) > 1) {
+        throw new AppError("Valor do pagamento não confere com o pedido.", 422);
+      }
+    }
+
+    await this.paymentRepository.upsertFromWebhook({
+      orderId,
+      externalId: String(payment.id),
+      status: "APROVADO",
+      payload: payment,
+      amount: order.total,
+    });
+
+    await this.orderRepository.updatePaymentStatus(orderId, "APROVADO");
+
+    emitPaymentUpdated({
+      orderId,
+      userId: order.userId,
+      paymentStatus: "APROVADO",
+    });
+
+    console.log(`[confirmCheckout] ✅ Pedido ${orderId} marcado como APROVADO`);
+
+    return { orderId, paymentStatus: "APROVADO", alreadyPaid: false };
+  }
+
   async listOrdersByUser(userId) {
     return this.orderRepository.findByUserId(userId);
   }
@@ -910,7 +986,8 @@ export class OrderService {
     const rawCandidates = [
       paymentData?.order?.id,
       paymentData?.point_of_interaction?.transaction_data?.order_id,
-      paymentData?.point_of_interaction?.transaction_data?.external_resource_url,
+      paymentData?.point_of_interaction?.transaction_data
+        ?.external_resource_url,
       paymentData?.metadata?.order_id,
       paymentData?.metadata?.external_reference,
       paymentData?.additional_info?.external_reference,
@@ -947,4 +1024,3 @@ export class OrderService {
     return null;
   }
 }
-

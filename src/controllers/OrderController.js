@@ -149,6 +149,23 @@ export class OrderController {
     }
   }
 
+  async confirmCheckoutPayment(req, res, next) {
+    try {
+      const { orderId, paymentId } = req.body;
+      if (!orderId || !paymentId) {
+        throw new AppError("orderId e paymentId são obrigatórios.", 422);
+      }
+      const result = await orderService.confirmCheckoutPayment(
+        orderId,
+        String(paymentId),
+        req.user,
+      );
+      return res.status(200).json({ data: result });
+    } catch (error) {
+      return this.#handleError(error, next);
+    }
+  }
+
   async paymentWebhook(req, res, next) {
     const ts = new Date().toISOString();
     console.log(`\n[webhook] ========== RECEBIDO ${ts} ==========`);

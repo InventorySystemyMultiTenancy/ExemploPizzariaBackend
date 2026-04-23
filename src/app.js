@@ -268,6 +268,16 @@ app.get("/api/payments/webhook", (_req, res) => {
   return res.status(200).json({ status: "ok" });
 });
 
+// Confirmação explícita após retorno do Checkout Pro
+// Garante que pedidos sejam marcados como APROVADO mesmo quando o webhook
+// falha por external_reference nulo (bug conhecido do MP)
+app.post(
+  "/api/payments/checkout-confirm",
+  authenticateToken,
+  authorizeRoles("CLIENTE", "ADMIN", "MESA"),
+  (req, res, next) => orderController.confirmCheckoutPayment(req, res, next),
+);
+
 app.post("/api/payments/preference", authenticateToken, (req, res, next) =>
   paymentController.createPreference(req, res, next),
 );
