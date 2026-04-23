@@ -151,6 +151,26 @@ export class OrderRepository {
     return rows[0] ?? null;
   }
 
+  /**
+   * Busca o pedido pendente mais recente da maquininha (terminalIntentId não nulo)
+   * cujo total bate com o valor do pagamento aprovado.
+   * Usado como fallback quando o MP não retorna external_reference.
+   */
+  async findPendingTerminalOrderByAmount(amountCents) {
+    const amountDecimal = (amountCents / 100).toFixed(2);
+    const rows = await prisma.$queryRaw`
+      SELECT id, "paymentStatus"::text AS "paymentStatus", "mesaId", "userId", total
+      FROM "Order"
+      WHERE "paymentStatus" = 'PENDENTE'
+        AND "terminalIntentId" IS NOT NULL
+        AND ROUND(total::numeric, 2) = ${parseFloat(amountDecimal)}
+        AND "createdAt" >= NOW() - INTERVAL '24 hours'
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
   async findByUserId(userId) {
     console.log("[findByUserId] start userId=", userId);
     let orders;

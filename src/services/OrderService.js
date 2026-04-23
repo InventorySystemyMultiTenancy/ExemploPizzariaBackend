@@ -381,6 +381,34 @@ export class OrderService {
               }
             }
           }
+
+          // Último recurso: pagamento aprovado da maquininha sem external_reference.
+          // Busca o pedido PENDENTE mais recente com terminalIntentId que bate com o valor.
+          if (!orderId && providerStatus === "approved") {
+            const txAmount = paymentData?.transaction_amount;
+            if (txAmount != null) {
+              const amountCents = toCents(txAmount);
+              const orderByAmount =
+                await this.orderRepository.findPendingTerminalOrderByAmount?.(
+                  amountCents,
+                );
+              if (orderByAmount?.id) {
+                orderId = orderByAmount.id;
+                console.log(
+                  "[webhook] orderId recuperado por valor do pagamento:",
+                  orderId,
+                  "| amount:",
+                  txAmount,
+                );
+              } else {
+                console.warn(
+                  "[webhook] Sem pedido pendente da maquininha com valor R$",
+                  txAmount,
+                  "— payload ignorado.",
+                );
+              }
+            }
+          }
         } catch (e) {
           console.error("[webhook] Falha ao buscar payment legado:", e.message);
         }
