@@ -59,6 +59,7 @@ export const paymentWebhookSchema = z
         status: z.string().optional(),
         metadata: z.record(z.any()).optional(),
       })
+      .passthrough()
       .optional(),
   })
   .passthrough();
