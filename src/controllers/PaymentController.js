@@ -196,6 +196,7 @@ export class PaymentController {
           external_reference: order.id,
           print_on_terminal: true,
         },
+        notification_url: `${process.env.BACKEND_URL || "https://exemplopizzariabackend.onrender.com"}/api/payments/webhook`,
       };
 
       console.log("[createMesaTerminalPayment] terminalId:", mesa.terminalId);

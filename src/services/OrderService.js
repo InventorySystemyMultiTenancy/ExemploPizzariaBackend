@@ -216,37 +216,109 @@ export class OrderService {
 
   async handlePaymentWebhook(payload) {
     // MP sends { type: "payment", data: { id: "<payment_id>" } } — no status inline.
-    // We must call the MP API to get the real payment status + external_reference.
-    const rawPaymentId = payload?.data?.id ?? payload?.id;
+    // MP Point sends { type: "point_integration_wh", data: { id: "<intent_id>", payment_id: 123, state: "FINISHED" } }
+    const isPointWebhook = payload?.type === "point_integration_wh";
+
     let providerStatus = "pending";
     let orderId =
       payload?.external_reference ??
+      payload?.additional_info?.external_reference ??
       payload?.data?.metadata?.order_id ??
       payload?.metadata?.order_id;
-    let externalId = String(rawPaymentId ?? "");
+    let externalId = "";
 
-    if (rawPaymentId && process.env.MP_ACCESS_TOKEN) {
-      try {
-        const client = new MercadoPagoConfig({
-          accessToken: process.env.MP_ACCESS_TOKEN,
-        });
-        const paymentApi = new MPPayment(client);
-        const paymentData = await paymentApi.get({ id: String(rawPaymentId) });
-        providerStatus = (paymentData.status ?? "pending").toLowerCase();
-        orderId = orderId || paymentData.external_reference;
-        externalId = String(paymentData.id ?? rawPaymentId);
-      } catch {
-        // fall through with defaults
+    const mpToken = process.env.MP_ACCESS_TOKEN;
+
+    if (isPointWebhook) {
+      // Para pagamentos da maquininha:
+      // 1. Buscar o intent para pegar external_reference e estado
+      // 2. Se houver payment_id, buscar o pagamento para confirmar status
+      const intentId = payload?.data?.id;
+      const paymentId = payload?.data?.payment_id;
+
+      console.log(
+        "[webhook] Point webhook. intentId:",
+        intentId,
+        "paymentId:",
+        paymentId,
+      );
+
+      if (intentId && mpToken) {
+        try {
+          const intentResp = await fetch(
+            `https://api.mercadopago.com/point/integration-api/payment-intents/${intentId}`,
+            { headers: { Authorization: `Bearer ${mpToken}` } },
+          );
+          const intentData = await intentResp.json();
+          orderId = orderId || intentData?.additional_info?.external_reference;
+          console.log("[webhook] intent data:", JSON.stringify(intentData));
+        } catch (e) {
+          console.error("[webhook] Falha ao buscar intent:", e.message);
+        }
+      }
+
+      if (paymentId && mpToken) {
+        try {
+          const client = new MercadoPagoConfig({ accessToken: mpToken });
+          const paymentApi = new MPPayment(client);
+          const paymentData = await paymentApi.get({ id: String(paymentId) });
+          providerStatus = (paymentData.status ?? "pending").toLowerCase();
+          orderId = orderId || paymentData.external_reference;
+          externalId = String(paymentData.id ?? paymentId);
+          console.log(
+            "[webhook] Point payment status:",
+            providerStatus,
+            "orderId:",
+            orderId,
+          );
+        } catch (e) {
+          console.error("[webhook] Falha ao buscar payment:", e.message);
+          // Derivar status do state do intent
+          const state = String(payload?.data?.state ?? "").toUpperCase();
+          if (state === "FINISHED") providerStatus = "approved";
+          else if (state === "CANCELED" || state === "CANCELLED")
+            providerStatus = "cancelled";
+          externalId = String(paymentId ?? intentId ?? "");
+        }
+      } else {
+        // Sem payment_id ainda (intent ainda processando) — ignorar
+        const state = String(payload?.data?.state ?? "").toUpperCase();
+        if (state === "FINISHED") providerStatus = "approved";
+        else if (state === "CANCELED" || state === "CANCELLED")
+          providerStatus = "cancelled";
+        else providerStatus = "pending";
+        externalId = String(intentId ?? "");
+        console.log("[webhook] Point sem payment_id, state:", state);
       }
     } else {
-      providerStatus = String(
-        payload?.data?.status ?? payload?.status ?? "pending",
-      ).toLowerCase();
+      // Webhook normal de pagamento (PIX / checkout)
+      const rawPaymentId = payload?.data?.id ?? payload?.id;
+      externalId = String(rawPaymentId ?? "");
+
+      if (rawPaymentId && mpToken) {
+        try {
+          const client = new MercadoPagoConfig({ accessToken: mpToken });
+          const paymentApi = new MPPayment(client);
+          const paymentData = await paymentApi.get({
+            id: String(rawPaymentId),
+          });
+          providerStatus = (paymentData.status ?? "pending").toLowerCase();
+          orderId = orderId || paymentData.external_reference;
+          externalId = String(paymentData.id ?? rawPaymentId);
+        } catch {
+          // fall through with defaults
+        }
+      } else {
+        providerStatus = String(
+          payload?.data?.status ?? payload?.status ?? "pending",
+        ).toLowerCase();
+      }
     }
 
     const paymentStatus = PAYMENT_STATUS_MAP[providerStatus] ?? "PENDENTE";
 
     if (!orderId) {
+      console.error("[webhook] Sem orderId. Payload:", JSON.stringify(payload));
       throw new AppError(
         "Webhook sem order_id no metadata/external_reference.",
         422,
