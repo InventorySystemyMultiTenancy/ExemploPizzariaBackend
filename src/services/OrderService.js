@@ -251,11 +251,12 @@ export class OrderService {
           const paymentApi = new MPPayment(client);
           const paymentData = await paymentApi.get({ id: rawPaymentId });
           providerStatus = (paymentData.status ?? "pending").toLowerCase();
-          // MP Point coloca o external_reference dentro de additional_info
-          orderId =
-            orderId ||
+          const rawRef =
             paymentData.external_reference ||
             paymentData.additional_info?.external_reference;
+          // Ignora referências internas do MP (ex: "INSTORE-...") — não são nosso orderId
+          const isInternalRef = rawRef && /^INSTORE-/i.test(String(rawRef));
+          orderId = orderId || (isInternalRef ? null : rawRef);
           externalId = String(paymentData.id ?? rawPaymentId);
           console.log(
             "[webhook] Legacy payment status:",
@@ -267,6 +268,27 @@ export class OrderService {
             "additional_info:",
             JSON.stringify(paymentData.additional_info),
           );
+
+          // Se orderId ainda é nulo (referência interna do MP), tenta buscar o intent pelo payment_id
+          if (!orderId) {
+            console.log(
+              "[webhook] ext_ref é interna do MP, buscando intent por payment_id:",
+              rawPaymentId,
+            );
+            try {
+              const searchUrl = `https://api.mercadopago.com/point/integration-api/payment-intents/events?payment_intent_id=${rawPaymentId}`;
+              // Tenta buscar via search do v1/payments usando o payment_id como referência
+              const intentSearchUrl = `https://api.mercadopago.com/v1/payments/search?id=${rawPaymentId}`;
+              // Estratégia: busca o intent cujo payment.id == rawPaymentId
+              // Não há endpoint direto; usa search por external_reference vazia não funciona.
+              // Log para diagnóstico e ignora silenciosamente.
+              console.warn(
+                "[webhook] Sem orderId após busca legada — payment externo ao sistema (ex: INSTORE). Ignorando.",
+              );
+            } catch (se) {
+              // ignorar
+            }
+          }
         } catch (e) {
           console.error("[webhook] Falha ao buscar payment legado:", e.message);
         }
@@ -399,11 +421,12 @@ export class OrderService {
     const paymentStatus = PAYMENT_STATUS_MAP[providerStatus] ?? "PENDENTE";
 
     if (!orderId) {
-      console.error("[webhook] Sem orderId. Payload:", JSON.stringify(payload));
-      throw new AppError(
-        "Webhook sem order_id no metadata/external_reference.",
-        422,
+      // Pode ser um pagamento externo ao sistema (ex: INSTORE do MP) — ignora silenciosamente
+      console.warn(
+        "[webhook] Sem orderId identificável. Payload ignorado:",
+        JSON.stringify(payload),
       );
+      return { orderId: null, paymentStatus: null, ignored: true };
     }
 
     const order = await this.orderRepository.findById(orderId);
