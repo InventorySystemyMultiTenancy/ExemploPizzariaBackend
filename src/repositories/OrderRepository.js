@@ -331,9 +331,14 @@ export class OrderRepository {
     }));
   }
 
-  async findForMotoboy() {
+  async findForMotoboy({ assignedMotoboyId } = {}) {
+    const where = {
+      status: "SAIU_PARA_ENTREGA",
+      ...(assignedMotoboyId ? { assignedMotoboyId } : {}),
+    };
+
     return prisma.order.findMany({
-      where: { status: "SAIU_PARA_ENTREGA" },
+      where,
       include: {
         items: {
           include: {

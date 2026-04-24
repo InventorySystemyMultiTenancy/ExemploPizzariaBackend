@@ -82,9 +82,9 @@ export class OrderController {
     }
   }
 
-  async motoboyOrders(_req, res, next) {
+  async motoboyOrders(req, res, next) {
     try {
-      const orders = await orderService.listMotoboyOrders();
+      const orders = await orderService.listMotoboyOrders(req.user);
       return res.status(200).json({ data: orders });
     } catch (error) {
       return this.#handleError(error, next);

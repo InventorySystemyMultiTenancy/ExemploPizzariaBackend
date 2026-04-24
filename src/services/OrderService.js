@@ -199,6 +199,13 @@ export class OrderService {
       );
     }
 
+    if (nextStatus === "SAIU_PARA_ENTREGA" && !order.assignedMotoboyId) {
+      throw new AppError(
+        "Selecione um motoboy antes de enviar para entrega.",
+        422,
+      );
+    }
+
     const deliveredAt = nextStatus === "ENTREGUE" ? new Date() : null;
     const updatedOrder = await this.orderRepository.updateStatus(
       orderId,
@@ -677,7 +684,13 @@ export class OrderService {
     return this.orderRepository.findByUserId(userId);
   }
 
-  async listMotoboyOrders() {
+  async listMotoboyOrders(user) {
+    if (user?.role === "MOTOBOY") {
+      return this.orderRepository.findForMotoboy({
+        assignedMotoboyId: user.id,
+      });
+    }
+
     return this.orderRepository.findForMotoboy();
   }
 
