@@ -279,9 +279,14 @@ export class OrderController {
       if (!code || typeof code !== "string") {
         throw new AppError("Código é obrigatório.", 422);
       }
+      const normalizedCode = code.trim();
+      if (!/^\d{4}$/.test(normalizedCode)) {
+        throw new AppError("Código deve ter 4 números.", 422);
+      }
+
       const order = await orderService.confirmDelivery(
         req.params.orderId,
-        code.trim(),
+        normalizedCode,
       );
       return res
         .status(200)
