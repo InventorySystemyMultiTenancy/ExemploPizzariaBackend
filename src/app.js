@@ -259,6 +259,13 @@ app.post(
   (req, res, next) => orderController.confirmDelivery(req, res, next),
 );
 
+app.patch(
+  "/api/orders/:orderId/mark-paid",
+  authenticateToken,
+  authorizeRoles("MOTOBOY", "ADMIN", "FUNCIONARIO"),
+  (req, res, next) => orderController.markPaid(req, res, next),
+);
+
 app.get(
   "/api/admin/motoboys",
   authenticateToken,

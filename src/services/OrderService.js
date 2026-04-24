@@ -913,8 +913,26 @@ export class OrderService {
     await this.orderRepository.assignMotoboy(orderId, motoboyId);
   }
 
-  async confirmDelivery(orderId, code) {
+  async confirmDelivery(orderId, code, user) {
     try {
+      const order = await this.orderRepository.findById(orderId);
+      if (!order) throw new AppError("Pedido não encontrado.", 404);
+
+      if (order.paymentStatus !== "APROVADO") {
+        throw new AppError(
+          "Pedido precisa estar pago para confirmar a entrega.",
+          409,
+        );
+      }
+
+      if (
+        user?.role === "MOTOBOY" &&
+        order.assignedMotoboyId &&
+        order.assignedMotoboyId !== user.id
+      ) {
+        throw new AppError("Este pedido está atribuído a outro motoboy.", 403);
+      }
+
       const updatedOrder = await this.orderRepository.confirmDelivery(
         orderId,
         code,
@@ -937,6 +955,47 @@ export class OrderService {
         throw new AppError("Pedido de retirada não usa código.", 400);
       throw err;
     }
+  }
+
+  async markPaidByMotoboy(orderId, user) {
+    const order = await this.orderRepository.findById(orderId);
+    if (!order) {
+      throw new AppError("Pedido não encontrado.", 404);
+    }
+
+    if (order.status !== "SAIU_PARA_ENTREGA") {
+      throw new AppError(
+        "Apenas pedidos em entrega podem ser marcados como pagos.",
+        409,
+      );
+    }
+
+    if (order.paymentStatus === "APROVADO") {
+      return order;
+    }
+
+    if (
+      user?.role === "MOTOBOY" &&
+      (!order.assignedMotoboyId || order.assignedMotoboyId !== user.id)
+    ) {
+      throw new AppError(
+        "Apenas o motoboy atribuído pode confirmar pagamento.",
+        403,
+      );
+    }
+
+    const updatedOrder = await this.orderRepository.updatePaymentStatus(
+      orderId,
+      "APROVADO",
+    );
+
+    emitPaymentUpdated({
+      orderId,
+      userId: order.userId,
+      paymentStatus: "APROVADO",
+    });
+
+    return updatedOrder;
   }
 
   async deleteOrder(orderId, userId) {

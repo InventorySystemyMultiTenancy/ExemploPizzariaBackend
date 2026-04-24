@@ -287,10 +287,25 @@ export class OrderController {
       const order = await orderService.confirmDelivery(
         req.params.orderId,
         normalizedCode,
+        req.user,
       );
       return res
         .status(200)
         .json({ message: "Entrega confirmada.", data: order });
+    } catch (error) {
+      return this.#handleError(error, next);
+    }
+  }
+
+  async markPaid(req, res, next) {
+    try {
+      const order = await orderService.markPaidByMotoboy(
+        req.params.orderId,
+        req.user,
+      );
+      return res
+        .status(200)
+        .json({ message: "Pagamento confirmado.", data: order });
     } catch (error) {
       return this.#handleError(error, next);
     }
