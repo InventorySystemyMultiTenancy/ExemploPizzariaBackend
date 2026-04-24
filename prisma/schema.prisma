@@ -129,6 +129,8 @@ model OrderItem {
   totalPrice          Decimal         @db.Decimal(10, 2)
   crustUnitPrice      Decimal?        @db.Decimal(10, 2)
 
+  notes               String?
+
   productId           String?
   firstHalfProductId  String?
   secondHalfProductId String?

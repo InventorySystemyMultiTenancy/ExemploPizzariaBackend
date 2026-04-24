@@ -127,6 +127,7 @@ export class OrderService {
           firstHalfProductId: item.firstHalfProductId,
           secondHalfProductId: item.secondHalfProductId,
           crustProductId: item.crustProductId,
+          notes: item.notes ?? null,
         })),
       },
       payment: {
@@ -1053,6 +1054,7 @@ export class OrderService {
       firstHalfProductId: null,
       secondHalfProductId: null,
       crustProductId: item.crustProductId ?? null,
+      notes: item.notes ?? null,
     };
   }
 
@@ -1123,6 +1125,7 @@ export class OrderService {
       firstHalfProductId: item.firstHalfProductId,
       secondHalfProductId: item.secondHalfProductId,
       crustProductId: item.crustProductId ?? null,
+      notes: item.notes ?? null,
     };
   }
 

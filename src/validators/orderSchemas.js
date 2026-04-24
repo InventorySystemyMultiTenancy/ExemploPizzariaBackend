@@ -7,6 +7,7 @@ const itemSchema = z.discriminatedUnion("type", [
     size: z.enum(["PEQUENA", "MEDIA", "GRANDE", "FAMILIA"]),
     crustProductId: z.string().cuid().optional(),
     quantity: z.number().int().positive().max(20).optional(),
+    notes: z.string().max(500).optional(),
   }),
   z.object({
     type: z.literal("MEIO_A_MEIO"),
@@ -15,6 +16,7 @@ const itemSchema = z.discriminatedUnion("type", [
     size: z.enum(["PEQUENA", "MEDIA", "GRANDE", "FAMILIA"]),
     crustProductId: z.string().cuid().optional(),
     quantity: z.number().int().positive().max(20).optional(),
+    notes: z.string().max(500).optional(),
   }),
 ]);
 
