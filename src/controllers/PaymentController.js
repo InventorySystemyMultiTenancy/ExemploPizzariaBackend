@@ -169,6 +169,44 @@ export class PaymentController {
         throw new AppError("Pedido ja pago.", 409);
       }
 
+      // Se já existe um terminalIntentId salvo, cancela a cobrança anterior
+      // antes de criar uma nova — evita múltiplas cobranças na maquininha.
+      if (order.terminalIntentId) {
+        const mpToken0 = process.env.MP_ACCESS_TOKEN;
+        if (mpToken0) {
+          try {
+            // Cancela a MP Order anterior (se ainda estiver em estado cancelável)
+            const cancelResp = await fetch(
+              `https://api.mercadopago.com/v1/orders/${order.terminalIntentId}`,
+              {
+                method: "PATCH",
+                headers: {
+                  Authorization: `Bearer ${mpToken0}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ status: "canceled" }),
+              },
+            );
+            if (cancelResp.ok) {
+              console.log(
+                `[createMesaTerminalPayment] Intent anterior cancelada: ${order.terminalIntentId}`,
+              );
+            } else {
+              const errBody = await cancelResp.json().catch(() => ({}));
+              console.warn(
+                `[createMesaTerminalPayment] Não foi possível cancelar intent anterior ${order.terminalIntentId}:`,
+                errBody?.message,
+              );
+            }
+          } catch (e) {
+            console.warn(
+              `[createMesaTerminalPayment] Erro ao cancelar intent anterior:`,
+              e.message,
+            );
+          }
+        }
+      }
+
       const mesa = await mesaRepository.findById(order.mesaId);
       if (!mesa?.terminalId) {
         throw new AppError("Mesa sem maquininha configurada.", 422);

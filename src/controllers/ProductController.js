@@ -33,7 +33,7 @@ export class ProductController {
 
   async listTopSelling(req, res, next) {
     try {
-      const limit = Number(req.query.limit) || 6;
+      const limit = Math.min(Math.max(Number(req.query.limit) || 6, 1), 50);
       const products = await productService.listTopSellingProducts(limit);
       return res.status(200).json({ data: products });
     } catch (error) {

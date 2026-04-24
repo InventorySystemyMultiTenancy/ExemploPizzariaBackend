@@ -5,14 +5,16 @@ let ioInstance = null;
 
 const STAFF_ROLES = new Set(["ADMIN", "FUNCIONARIO", "COZINHA", "MOTOBOY"]);
 
-function getOrigin() {
-  return process.env.CORS_ORIGIN || "http://localhost:5173";
+function getAllowedOrigins() {
+  return (process.env.CORS_ORIGIN || "http://localhost:5173")
+    .split(",")
+    .map((o) => o.trim());
 }
 
 export function initializeSocketServer(server) {
   ioInstance = new Server(server, {
     cors: {
-      origin: getOrigin(),
+      origin: getAllowedOrigins(),
       methods: ["GET", "POST"],
     },
   });

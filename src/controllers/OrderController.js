@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { ZodError } from "zod";
 import { AppError } from "../errors/AppError.js";
 import { OrderService } from "../services/OrderService.js";
@@ -175,6 +176,49 @@ export class OrderController {
     );
     console.log("[webhook] query:", JSON.stringify(req.query));
     console.log("[webhook] raw body:", JSON.stringify(req.body));
+
+    // \u2500\u2500 Verifica\u00e7\u00e3o HMAC-SHA256 da assinatura do Mercado Pago \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // MP_WEBHOOK_SECRET \u00e9 o "chave secreta" gerado no painel do MP para este webhook.
+    // Formato do header: x-signature: ts=TIMESTAMP,v1=HMAC
+    // Formato do template: id:{paymentId};request-id:{xRequestId};ts:{timestamp}
+    if (process.env.MP_WEBHOOK_SECRET) {
+      const xSignature = req.headers["x-signature"] || "";
+      const xRequestId = req.headers["x-request-id"] || "";
+      const dataId =
+        req.query["data.id"] || req.query.id || req.body?.data?.id || "";
+
+      const tsPart = xSignature.split(",").find((p) => p.startsWith("ts="));
+      const v1Part = xSignature.split(",").find((p) => p.startsWith("v1="));
+
+      if (!tsPart || !v1Part) {
+        console.warn(
+          "[webhook] HMAC: header x-signature ausente ou mal-formado. Ignorando.",
+        );
+      } else {
+        const timestamp = tsPart.slice(3);
+        const receivedHmac = v1Part.slice(3);
+        const template = `id:${dataId};request-id:${xRequestId};ts:${timestamp}`;
+        const expectedHmac = crypto
+          .createHmac("sha256", process.env.MP_WEBHOOK_SECRET)
+          .update(template)
+          .digest("hex");
+
+        if (
+          receivedHmac.length !== expectedHmac.length ||
+          !crypto.timingSafeEqual(
+            Buffer.from(receivedHmac),
+            Buffer.from(expectedHmac),
+          )
+        ) {
+          console.error(
+            "[webhook] HMAC inválido! Possível webhook falso bloqueado.",
+          );
+          return res.status(200).json({ message: "OK" }); // 200 para evitar retry, mas não processa
+        }
+        console.log("[webhook] HMAC verificado com sucesso.");
+      }
+    }
+    // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
     try {
       // Mescla query params + body para suportar IPN (query string) e Webhook (body) simultaneamente.

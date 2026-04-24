@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { AuthController } from "./controllers/AuthController.js";
 import { OrderController } from "./controllers/OrderController.js";
 import { PaymentController } from "./controllers/PaymentController.js";
@@ -15,6 +17,24 @@ import { prisma } from "./lib/prisma.js";
 import { DeliveryService } from "./services/DeliveryService.js";
 import { deliveryFreightSchema } from "./validators/orderSchemas.js";
 
+// ── Variáveis de ambiente críticas ───────────────────────────────────────────
+const REQUIRED_ENV = ["JWT_SECRET", "DATABASE_URL"];
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(
+      `[FATAL] Variável de ambiente obrigatória não definida: ${key}`,
+    );
+    process.exit(1);
+  }
+}
+
+if (!process.env.MP_WEBHOOK_SECRET) {
+  console.warn(
+    "[SECURITY] MP_WEBHOOK_SECRET não definido. Verificação HMAC do webhook desabilitada.",
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const app = express();
 const authController = new AuthController();
 const orderController = new OrderController();
@@ -25,6 +45,9 @@ const mesaController = new MesaController();
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((o) => o.trim());
+
+// ── Segurança: headers HTTP ───────────────────────────────────────────────────
+app.use(helmet());
 
 app.use(
   cors({
@@ -38,7 +61,21 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
+
+// Limita tamanho do body para evitar DoS por payloads gigantes
+app.use(express.json({ limit: "1mb" }));
+
+// ── Rate limiting: anti brute-force ──────────────────────────────────────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20, // max 20 tentativas por IP por janela
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: { message: "Muitas tentativas. Tente novamente em 15 minutos." },
+  },
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 app.get("/health", (_req, res) => {
   return res.status(200).json({ status: "ok" });
@@ -87,11 +124,11 @@ app.patch(
   (req, res, next) => productController.restore(req, res, next),
 );
 
-app.post("/api/auth/register", (req, res, next) =>
+app.post("/api/auth/register", authLimiter, (req, res, next) =>
   authController.register(req, res, next),
 );
 
-app.post("/api/auth/login", (req, res, next) =>
+app.post("/api/auth/login", authLimiter, (req, res, next) =>
   authController.login(req, res, next),
 );
 
