@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import twilio from "twilio";
 import { AuthController } from "./controllers/AuthController.js";
 import { OrderController } from "./controllers/OrderController.js";
 import { PaymentController } from "./controllers/PaymentController.js";
@@ -79,6 +80,64 @@ const authLimiter = rateLimit({
 
 app.get("/health", (_req, res) => {
   return res.status(200).json({ status: "ok" });
+});
+
+app.post("/api/send-pizza-alert", async (req, res, next) => {
+  try {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromInput =
+      process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886";
+    const defaultTo = process.env.TWILIO_WHATSAPP_TO;
+
+    if (!accountSid || !authToken) {
+      return res.status(500).json({
+        error: {
+          message:
+            "Defina TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN no arquivo .env.",
+        },
+      });
+    }
+
+    const toInput = (req.body?.to || defaultTo || "").trim();
+    const body =
+      req.body?.message?.trim() ||
+      "Ola Gabriel! Sua Pizza Portuguesa esta saindo do forno!";
+
+    if (!toInput) {
+      return res.status(400).json({
+        error: {
+          message:
+            "Informe o destino em req.body.to ou configure TWILIO_WHATSAPP_TO no .env.",
+        },
+      });
+    }
+
+    const to = toInput.startsWith("whatsapp:")
+      ? toInput
+      : `whatsapp:${toInput}`;
+    const from = fromInput.startsWith("whatsapp:")
+      ? fromInput
+      : `whatsapp:${fromInput}`;
+
+    const client = twilio(accountSid, authToken);
+    const message = await client.messages.create({
+      from,
+      to,
+      body,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "Mensagem enviada com sucesso.",
+      sid: message.sid,
+      status: message.status,
+      to,
+      from,
+    });
+  } catch (err) {
+    return next(err);
+  }
 });
 
 // Public product routes
