@@ -140,6 +140,33 @@ app.post("/api/send-pizza-alert", async (req, res, next) => {
   }
 });
 
+app.get("/api/twilio/status/:sid", async (req, res, next) => {
+  try {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!accountSid || !authToken) {
+      return res.status(500).json({ error: "Twilio credentials missing" });
+    }
+    const client = twilio(accountSid, authToken);
+    const message = await client.messages(req.params.sid).fetch();
+    return res.status(200).json({
+      ok: true,
+      sid: message.sid,
+      status: message.status,
+      to: message.to,
+      from: message.from,
+      body: message.body,
+      errorCode: message.errorCode ?? null,
+      errorMessage: message.errorMessage ?? null,
+      dateCreated: message.dateCreated,
+      dateSent: message.dateSent,
+      dateUpdated: message.dateUpdated,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // Public product routes
 app.get("/api/products", (req, res, next) =>
   productController.list(req, res, next),
